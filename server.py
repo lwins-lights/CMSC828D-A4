@@ -45,11 +45,37 @@ def fastExe(conn, comm):
 '''
 def fetchData(conn, country, xattr, yattr):
   data = fastExe(conn, " ".join([
-    "SELECT", xattr + "," + yattr,
+    "SELECT", xattr + "," + yattr + ",year",
+    "FROM nations WHERE country =",
+    "'" + country + "'",
+    "ORDER BY year ASC" 
+    ]));
+  xmin = fastExe(conn, " ".join([
+    "SELECT", "MIN(" + xattr + ")",
     "FROM nations WHERE country =",
     "'" + country + "'"
-    ]));
-  return {"xygraph":data}
+    ]))[0][0];
+  xmax = fastExe(conn, " ".join([
+    "SELECT", "MAX(" + xattr + ")",
+    "FROM nations WHERE country =",
+    "'" + country + "'"
+    ]))[0][0];
+  ymin = fastExe(conn, " ".join([
+    "SELECT", "MIN(" + yattr + ")",
+    "FROM nations WHERE country =",
+    "'" + country + "'"
+    ]))[0][0];
+  ymax = fastExe(conn, " ".join([
+    "SELECT", "MAX(" + yattr + ")",
+    "FROM nations WHERE country =",
+    "'" + country + "'"
+    ]))[0][0];
+  return {
+    "xygraph":data,
+    "xmin":xmin,
+    "xmax":xmax,
+    "ymin":ymin,
+    "ymax":ymax}
 
 '''
   init(): Initialization of the server
@@ -82,7 +108,7 @@ def renderPage():
     .yattr := attribute 2
   ---------- OUTPUT ----------
   .qtype == data:
-    .xygraph := data of the line graph for attribute 1 & 2
+    .xygraph := data of the line graph: array of tuple [x, y, year]
 '''
 @app.route('/get-data')
 def getData():
