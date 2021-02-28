@@ -13,6 +13,13 @@
   crossorigin="anonymous"
   />
   -->
+  <style>
+    .overlay {
+      fill: none;
+      stroke: none;
+      pointer-events: all;
+    }
+  </style>
 </head>
 
 <body>
@@ -22,19 +29,22 @@
     <select id="selectButton_country"></select>
     <select id="selectButton_xattr"></select>
     <select id="selectButton_yattr"></select>
+    <p id="yearDisplay"></p>
+    <p id="xattrDisplay"></p>
+    <p id="yattrDisplay"></p>
     <div id="xygraph">
   </div>
 
   <script>
-    const xygraphMargin = ({top: 20, right: 30, bottom: 30, left: 40});
+    const xygraphMargin = ({top: 20, right: 30, bottom: 40, left: 50});
     const formatValuePrecision = 3;
     const urlGetData = "http://localhost:10007/get-data";
     const attributes = [
-      {"displayedText":"GDP per Capita", "colname":"gdp_percap", "aid":0},
-      {"displayedText":"Life Expectancy", "colname":"life_expect", "aid":1},
-      {"displayedText":"Population", "colname":"population", "aid":2},
-      {"displayedText":"Birth Rate", "colname":"birth_rate", "aid":3},
-      {"displayedText":"Neonatal Mortality Rate", "colname":"neonat_mortal_rate", "aid":4}
+      {"displayedText":"GDP per Capita", "colname":"gdp_percap", "aid":0, "suffixUnit": " USD", "unit": " (USD)"},
+      {"displayedText":"Life Expectancy", "colname":"life_expect", "aid":1, "suffixUnit": " years", "unit": " (years)"},
+      {"displayedText":"Population", "colname":"population", "aid":2, "suffixUnit":"", "unit": ""},
+      {"displayedText":"Birth Rate", "colname":"birth_rate", "aid":3, "suffixUnit":" per 1k people", "unit":" (per 1k people)"},
+      {"displayedText":"Neonatal Mortality Rate", "colname":"neonat_mortal_rate", "aid":4, "suffixUnit":" per 1k births", "unit":" (per 1k births)"}
     ];
     let countrylist = null;
     let currentCountryId = 200, currentXattrId = 0, currentYattrId = 1;
@@ -52,6 +62,24 @@
     function clearNode(identifier) {
       const myNode = document.getElementById(identifier);
       myNode.textContent = '';
+    }
+
+    function sqr(x) {
+      return x*x;
+    }
+
+    function attract(c, data, xw, yw) {
+      let runningMin = Infinity;
+      let runningArg = 0;
+      let temp = null;
+      for (let i = 0; i < data.length; i++) {
+        temp = sqr(xw * (c[0] - data[i][0])) + sqr(yw * (c[1] - data[i][1]));
+        if (temp < runningMin) {
+          runningMin = temp;
+          runningArg = i;
+        }
+      }
+      return data[runningArg];
     }
 
     function renderXygraph(data, xmin, xmax, ymin, ymax, height, width, margin) {
@@ -79,6 +107,27 @@
         .call(d3.axisLeft(y)
           .tickFormat(d => formatValue(d, formatValuePrecision))
           );
+
+      svg.append("text")
+        .attr("class", "x label")
+        .attr("text-anchor", "end")
+        .attr("x", width)
+        .attr("y", height - 10)
+        .attr("dy", ".35em")
+        .attr("font-size", "12px")
+        .attr("font-family", "sans-serif")
+        .text(attributes[currentXattrId].displayedText + attributes[currentXattrId].unit);
+
+      svg.append("text")
+        .attr("class", "y label")
+        .attr("text-anchor", "end")
+        .attr("x", -10)
+        .attr("y", 6)
+        .attr("dy", ".35em")
+        .attr("transform", "rotate(-90)")
+        .attr("font-size", "12px")
+        .attr("font-family", "sans-serif")
+        .text(attributes[currentYattrId].displayedText + attributes[currentYattrId].unit);
 
       const line = (x, y) => d3.line()
         .defined(d => !isNaN([0]) && !isNaN([1]))
@@ -117,16 +166,57 @@
 
       svg.call(zoom);
 
+      let xz = x;
+      let yz = y;
+
+      const focus = svg.append('g')
+        .style('display', 'none');
+
+      let focusData = [0, 0];
+
       function zoomed(event) {
         //console.log(event);
-        const xz = event.transform.rescaleX(x);
-        const yz = event.transform.rescaleY(y);
-        
+        xz = event.transform.rescaleX(x);
+        yz = event.transform.rescaleY(y);
         gx.call(xAxis, xz);
         gy.call(yAxis, yz);
         path.attr("d", line(xz, yz));
+        focus.select('#focusCircle')
+          .attr('cx', xz(focusData[0]))
+          .attr('cy', yz(focusData[1]));
         //path.attr("transform", event.transform)
       }
+                
+      focus.append('circle')
+        .attr("clip-path", "url(#xygraph-clip)")
+        .attr('id', 'focusCircle')
+        .attr('r', 5)
+        .attr("fill", "red")
+
+      svg.append('rect')
+        .attr('class', 'overlay')
+        .attr('width', width)
+        .attr('height', height)
+        .on('mouseover', function() { focus.style('display', null); })
+        .on('mouseout', function() { focus.style('display', 'none'); })
+        .on('mousemove', function(event) { 
+          let mouse = d3.pointer(event);
+          mouseData = [xz.invert(mouse[0]), yz.invert(mouse[1])];
+          //console.log(mouseData[0].toString() + " " + mouseData[1].toString());
+          focusData = attract(mouseData, data, xz(1) - xz(0), yz(1) - yz(0));
+          //console.log(mouseData[0].toString() + " " + mouseData[1].toString() + " " + focusData[0].toString() + " " + focusData[1].toString() + "/" + xz(focusData[0]).toString());
+          focus.select('#focusCircle')
+            .attr('cx', xz(focusData[0]))
+            .attr('cy', yz(focusData[1]));
+          d3.select('#xattrDisplay')
+            .text(attributes[currentXattrId].displayedText + ": " + 
+              formatValue(focusData[0], formatValuePrecision) + attributes[currentXattrId].suffixUnit);
+          d3.select('#yattrDisplay')
+            .text(attributes[currentYattrId].displayedText + ": " + 
+              formatValue(focusData[1], formatValuePrecision) + attributes[currentYattrId].suffixUnit);
+          d3.select('#yearDisplay')
+            .text("Year: " + focusData[2].toString());
+        });
 
       //console.dir(data);
       //console.dir([xmin, xmax, ymin, ymax]);
@@ -205,6 +295,8 @@
         createSelectButtons(countrylist, attributes);
         updateDashboard();
       });
+
+    //console.log(formatValue(0.12345));
     /*
     let url = new URL(urlGetData);
     url.search = new URLSearchParams({"qtype":"data", "country":"United States", "yattr":"gdp_percap", "xattr":"population"}).toString();
