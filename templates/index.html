@@ -22,6 +22,16 @@
   </div>
   <script>
     const xygraphMargin = ({top: 20, right: 30, bottom: 30, left: 40});
+    const formatValuePrecision = 3;
+
+    function formatValue(x, prec) {
+      let l = Math.log10(x);
+      if (l <= 0) return x.toFixed(prec);
+      if (l > 0 && l <= 3) return x.toFixed(prec - Math.ceil(l));
+      if (l > 3 && l <= 6) return (x/1000.0).toFixed(prec + 3 - Math.ceil(l)) + "K";
+      if (l > 6 && l <= 9) return (x/1000000.0).toFixed(prec + 6 - Math.ceil(l)) + "M";
+      if (l > 9) return (x/1000000000.0).toFixed(prec + 9 - Math.ceil(l)) + "B";
+    }
 
     function renderXygraph(data, xmin, xmax, ymin, ymax, height, width, margin) {
       //clearNode("vis");
@@ -39,11 +49,15 @@
 
       let xAxis = g => g
         .attr("transform", `translate(0,${height - margin.bottom})`)
-        .call(d3.axisBottom(x));
+        .call(d3.axisBottom(x)
+          .tickFormat(d => formatValue(d, formatValuePrecision))
+          );
 
       let yAxis = g => g
         .attr("transform", `translate(${margin.left},0)`)
-        .call(d3.axisLeft(y));
+        .call(d3.axisLeft(y)
+          .tickFormat(d => formatValue(d, formatValuePrecision))
+          );
 
       let line = d3.line()
         .defined(d => !isNaN([0]) && !isNaN([1]))
