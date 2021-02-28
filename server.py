@@ -41,6 +41,17 @@ def fastExe(conn, comm):
   return data
 
 '''
+  fetchInit(): Fetch initilization data from the PostgreSQL server
+'''
+def fetchInit(conn):
+  countrylist = fastExe(conn, " ".join([
+    "SELECT DISTINCT country,iso3c FROM nations ORDER BY country ASC"
+    ]));
+  return {
+    "countrylist":countrylist
+    }
+
+'''
   fetchData(): Fetch data from the PostgreSQL server
 '''
 def fetchData(conn, country, xattr, yattr):
@@ -106,9 +117,13 @@ def renderPage():
     .country := country of interest
     .xattr := attribute 1
     .yattr := attribute 2
+  .qtype == init:
+    NONE
   ---------- OUTPUT ----------
   .qtype == data:
     .xygraph := data of the line graph: array of tuple [x, y, year]
+  .qtype == init:
+    .countrylist := array of tuple like ["China", "CHN"]
 '''
 @app.route('/get-data')
 def getData():
@@ -118,6 +133,8 @@ def getData():
     xattr = request.args.get('xattr')
     yattr = request.args.get('yattr')
     data = fetchData(conn, country, xattr, yattr)
+  if qtype == 'init':
+    data = fetchInit(conn)
   resp = Response(response=json.dumps(data),status=200, mimetype='application/json')
   h = resp.headers
   h['Access-Control-Allow-Origin'] = "*"

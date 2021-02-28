@@ -16,13 +16,28 @@
 </head>
 
 <body>
+
   <div class="container">
     <h1>CMSC828D A2 (Yufan Zheng)</h1>
+    <select id="selectButton_country"></select>
+    <select id="selectButton_xattr"></select>
+    <select id="selectButton_yattr"></select>
     <div id="xygraph">
   </div>
+
   <script>
     const xygraphMargin = ({top: 20, right: 30, bottom: 30, left: 40});
     const formatValuePrecision = 3;
+    const urlGetData = "http://localhost:10007/get-data";
+    const attributes = [
+      {"displayedText":"GDP per Capita", "colname":"gdp_percap", "aid":0},
+      {"displayedText":"Life Expectancy", "colname":"life_expect", "aid":1},
+      {"displayedText":"Population", "colname":"population", "aid":2},
+      {"displayedText":"Birth Rate", "colname":"birth_rate", "aid":3},
+      {"displayedText":"Neonatal Mortality Rate", "colname":"neonat_mortal_rate", "aid":4}
+    ];
+    let countrylist = null;
+    let currentCountryId = 200, currentXattrId = 0, currentYattrId = 1;
 
     function formatValue(x, prec) {
       let l = Math.log10(x);
@@ -33,8 +48,14 @@
       if (l > 9) return (x/1000000000.0).toFixed(prec + 9 - Math.ceil(l)) + "b";
     }
 
+    // removes the content inside of the given DOM element 
+    function clearNode(identifier) {
+      const myNode = document.getElementById(identifier);
+      myNode.textContent = '';
+    }
+
     function renderXygraph(data, xmin, xmax, ymin, ymax, height, width, margin) {
-      //clearNode("vis");
+      clearNode("xygraph");
       const svg = d3.select("#xygraph").append("svg")
         .attr("width",width)
         .attr("height",height)
@@ -112,7 +133,80 @@
       return;
     }
 
-    let url = new URL("http://localhost:10007/get-data");
+    function updateDashboard() {
+      //console.log([currentCountryId, currentXattrId, currentYattrId]);
+      let url = new URL(urlGetData);
+      url.search = new URLSearchParams({
+        "qtype":"data", "country":countrylist[currentCountryId][0], 
+        "yattr":attributes[currentYattrId].colname, 
+        "xattr":attributes[currentXattrId].colname
+      }).toString();
+      fetch(url,{"credentials": "same-origin"})
+        .then(response => response.json())
+        .then(fetchedData => {
+          let xygraphData = fetchedData["xygraph"];
+          let xmin = fetchedData["xmin"], xmax = fetchedData["xmax"], ymin = fetchedData["ymin"], ymax = fetchedData["ymax"];
+          renderXygraph(xygraphData, xmin, xmax, ymin, ymax, 500, 500, xygraphMargin);
+        });
+    }
+
+    function createSelectButtons(countrylist, attributes) {
+      let countries = [];
+      for (let i = 0; i < countrylist.length; i++) {
+        countries.push({"cid":i,"cname":countrylist[i][0]});
+      }
+      
+      d3.select("#selectButton_country")
+        .on("change", function(d){
+          currentCountryId = this.value;
+          updateDashboard();
+        })
+          .selectAll('myOptions')
+            .data(countries)
+            .enter()
+            .append('option')
+            .text(d => d.cname) // text showed in the menu
+            .attr("value", d => d.cid); // corresponding value returned by the button
+      d3.select('#selectButton_country').property('value', currentCountryId);
+
+      d3.select("#selectButton_xattr")
+        .on("change", function(d){
+          currentXattrId = this.value;
+          updateDashboard();
+        })
+          .selectAll('myOptions')
+            .data(attributes)
+            .enter()
+            .append('option')
+            .text(d => d.displayedText) // text showed in the menu
+            .attr("value", d => d.aid); // corresponding value returned by the button
+      d3.select('#selectButton_xattr').property('value', currentXattrId);
+
+      d3.select("#selectButton_yattr")
+        .on("change", function(d){
+          currentYattrId = this.value;
+          updateDashboard();
+        })
+          .selectAll('myOptions')
+            .data(attributes)
+            .enter()
+            .append('option')
+            .text(d => d.displayedText) // text showed in the menu
+            .attr("value", d => d.aid); // corresponding value returned by the button
+      d3.select('#selectButton_yattr').property('value', currentYattrId);
+    }
+
+    let url = new URL(urlGetData);
+    url.search = new URLSearchParams({"qtype":"init"}).toString();
+    fetch(url,{"credentials": "same-origin"})
+      .then(response => response.json())
+      .then(fetchedData => {
+        countrylist = fetchedData["countrylist"];
+        createSelectButtons(countrylist, attributes);
+        updateDashboard();
+      });
+    /*
+    let url = new URL(urlGetData);
     url.search = new URLSearchParams({"qtype":"data", "country":"United States", "yattr":"gdp_percap", "xattr":"population"}).toString();
     fetch(url,{"credentials": "same-origin"})
     .then(response => response.json())
@@ -121,6 +215,7 @@
       let xmin = fetchedData["xmin"], xmax = fetchedData["xmax"], ymin = fetchedData["ymin"], ymax = fetchedData["ymax"];
       renderXygraph(xygraphData, xmin, xmax, ymin, ymax, 500, 500, xygraphMargin);
     });
+    */
   </script>
 </body>
 
