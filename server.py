@@ -45,7 +45,7 @@ def fastExe(conn, comm):
 '''
 def fetchInit(conn):
   countrylist = fastExe(conn, " ".join([
-    "SELECT DISTINCT country,iso3c FROM nations ORDER BY country ASC"
+    "SELECT DISTINCT country,iso3c,region,income FROM nations ORDER BY country ASC"
     ]));
   return {
     "countrylist":countrylist
@@ -81,12 +81,24 @@ def fetchData(conn, country, xattr, yattr):
     "FROM nations WHERE country =",
     "'" + country + "'"
     ]))[0][0];
+  yearmin = fastExe(conn, " ".join([
+    "SELECT", "MIN(year)",
+    "FROM nations WHERE country =",
+    "'" + country + "'"
+    ]))[0][0];
+  yearmax = fastExe(conn, " ".join([
+    "SELECT", "MAX(year)",
+    "FROM nations WHERE country =",
+    "'" + country + "'"
+    ]))[0][0];
   return {
     "xygraph":data,
     "xmin":xmin,
     "xmax":xmax,
     "ymin":ymin,
-    "ymax":ymax}
+    "ymax":ymax,
+    "yearmin":yearmin,
+    "yearmax":yearmax}
 
 '''
   init(): Initialization of the server

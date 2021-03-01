@@ -19,20 +19,34 @@
       stroke: none;
       pointer-events: all;
     }
+    body {
+      font-family: Times New Roman;
+    }
   </style>
 </head>
 
 <body>
-
   <div class="container">
     <h1>CMSC828D A2 (Yufan Zheng)</h1>
     <select id="selectButton_country"></select>
     <select id="selectButton_xattr"></select>
     <select id="selectButton_yattr"></select>
-    <p id="yearDisplay"></p>
-    <p id="xattrDisplay"></p>
-    <p id="yattrDisplay"></p>
-    <div id="xygraph">
+    <div style="height: 120px;">
+      <div style="float: left; margin-right: 50px">
+        <p id="yearDisplay"></p>
+        <p id="xattrDisplay"></p>
+        <p id="yattrDisplay"></p>
+      </div>
+      <div style="float: left;">
+        <p id="regionDisplay"></p>
+        <p id="incomeDisplay"></p>
+      </div>
+    </div>
+    <div class="container">
+      <div id="xygraph", style="float: left;"></div>
+      <div id="xgraph"></div>
+      <div id="ygraph"></div>
+    </div>
   </div>
 
   <script>
@@ -47,7 +61,7 @@
       {"displayedText":"Neonatal Mortality Rate", "colname":"neonat_mortal_rate", "aid":4, "suffixUnit":" per 1k births", "unit":" (per 1k births)"}
     ];
     let countrylist = null;
-    let currentCountryId = 200, currentXattrId = 0, currentYattrId = 1;
+    let currentCountryId = 88, currentXattrId = 0, currentYattrId = 3;
 
     function formatValue(x, prec) {
       let l = Math.log10(x);
@@ -82,11 +96,89 @@
       return data[runningArg];
     }
 
-    function renderXygraph(data, xmin, xmax, ymin, ymax, height, width, margin) {
+    function renderLinegraph(data, attrId, attrBooleanId, xmin, xmax, ymin, ymax, height, width, margin, nodeName) {
+      clearNode(nodeName);
+      const svg = d3.select("#" + nodeName).append("svg")
+        .attr("width",width)
+        .attr("height",height);
+
+      const x = d3.scaleLinear()
+        .domain([xmin, xmax]).nice()
+        .range([margin.left, width - margin.right]);
+
+      const y = d3.scaleLinear()
+        .domain([ymin, ymax]).nice()
+        .range([height - margin.bottom, margin.top]);
+
+      const xAxis = (g, x) => g
+        .attr("transform", `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x)
+          .tickFormat(d => d)
+          );
+
+      const yAxis = (g, y) => g
+        .attr("transform", `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y)
+          .tickFormat(d => formatValue(d, formatValuePrecision))
+          );
+
+      svg.append("text")
+        .attr("class", "x label")
+        .attr("text-anchor", "end")
+        .attr("x", width - margin.right + 10)
+        .attr("y", height - 10)
+        .attr("dy", ".35em")
+        .attr("font-size", "12px")
+        .attr("font-family", "sans-serif")
+        .text("Year");
+
+      svg.append("text")
+        .attr("class", "y label")
+        .attr("text-anchor", "end")
+        .attr("x", -10)
+        .attr("y", 6)
+        .attr("dy", ".35em")
+        .attr("transform", "rotate(-90)")
+        .attr("font-size", "12px")
+        .attr("font-family", "sans-serif")
+        .text(attributes[attrId].displayedText + attributes[attrId].unit);
+
+      const line = (x, y) => d3.line()
+        .defined(d => !isNaN([0]) && !isNaN([1]))
+        .x(d => x(d[2]))
+        .y(d => y(d[attrBooleanId]));
+
+      const gx = svg.append("g")
+        .call(xAxis, x);
+
+      const gy = svg.append("g")
+        .call(yAxis, y);
+
+      const path = svg.append("path")
+        .datum(data)
+        .attr("fill", "none")
+        .attr("stroke", "steelblue")
+        .attr("stroke-width", 3)
+        .attr("stroke-linejoin", "round")
+        .attr("stroke-linecap", "round")
+        .attr("d", line(x, y));
+
+      const focus = svg.append('g')
+        .style('display', 'none');
+                
+      focus.append('circle')
+        .attr('id', 'focusCircle')
+        .attr('r', 5)
+        .attr("fill", "black")
+
+      return {"x":x, "y":y, "focus":focus};
+    }
+
+    function renderXygraph(data, xmin, xmax, ymin, ymax, height, width, margin, xgHandle, ygHandle) {
       clearNode("xygraph");
       const svg = d3.select("#xygraph").append("svg")
         .attr("width",width)
-        .attr("height",height)
+        .attr("height",height);
 
       const x = d3.scaleLinear()
         .domain([xmin, xmax]).nice()
@@ -111,7 +203,7 @@
       svg.append("text")
         .attr("class", "x label")
         .attr("text-anchor", "end")
-        .attr("x", width)
+        .attr("x", width - margin.right + 10)
         .attr("y", height - 10)
         .attr("dy", ".35em")
         .attr("font-size", "12px")
@@ -147,16 +239,32 @@
           .attr("y", margin.top)
           .attr("width", width - margin.left - margin.right)
           .attr("height", height - margin.top - margin.bottom);
+
+      svg.append('svg:defs')
+        .append('svg:marker')
+        .attr('id', 'arrow')
+        .attr('refX', 6)
+        .attr('refY', 6)
+        .attr('markerWidth', 30)
+        .attr('markerHeight', 30)
+        .attr('markerUnits', 'userSpaceOnUse')
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M 0 0 12 6 0 12 3 6')
+        .style('fill', 'steelblue');
     
       const path = svg.append("path")
         .attr("clip-path", "url(#xygraph-clip)")
         .datum(data)
         .attr("fill", "none")
         .attr("stroke", "steelblue")
-        .attr("stroke-width", 5)
+        .attr("stroke-width", 3)
         .attr("stroke-linejoin", "round")
         .attr("stroke-linecap", "round")
-        .attr("d", line(x, y));
+        .attr("d", line(x, y))
+        .attr("marker-start","url(#arrow)")
+        .attr("marker-mid","url(#arrow)")
+        .attr("marker-end","url(#arrow)");
 
       const zoom = d3.zoom()
         .scaleExtent([1, Infinity])
@@ -191,14 +299,22 @@
         .attr("clip-path", "url(#xygraph-clip)")
         .attr('id', 'focusCircle')
         .attr('r', 5)
-        .attr("fill", "red")
+        .attr("fill", "black")
 
       svg.append('rect')
         .attr('class', 'overlay')
         .attr('width', width)
         .attr('height', height)
-        .on('mouseover', function() { focus.style('display', null); })
-        .on('mouseout', function() { focus.style('display', 'none'); })
+        .on('mouseover', function() { 
+          focus.style('display', null); 
+          xgHandle.focus.style('display', null); 
+          ygHandle.focus.style('display', null); 
+        })
+        .on('mouseout', function() { 
+          focus.style('display', 'none'); 
+          xgHandle.focus.style('display', 'none'); 
+          ygHandle.focus.style('display', 'none'); 
+        })
         .on('mousemove', function(event) { 
           let mouse = d3.pointer(event);
           mouseData = [xz.invert(mouse[0]), yz.invert(mouse[1])];
@@ -208,6 +324,15 @@
           focus.select('#focusCircle')
             .attr('cx', xz(focusData[0]))
             .attr('cy', yz(focusData[1]));
+
+          xgHandle.focus.select('#focusCircle')
+            .attr('cx', xgHandle.x(focusData[2]))
+            .attr('cy', xgHandle.y(focusData[0]));
+
+          ygHandle.focus.select('#focusCircle')
+            .attr('cx', ygHandle.x(focusData[2]))
+            .attr('cy', ygHandle.y(focusData[1]));
+          
           d3.select('#xattrDisplay')
             .text(attributes[currentXattrId].displayedText + ": " + 
               formatValue(focusData[0], formatValuePrecision) + attributes[currentXattrId].suffixUnit);
@@ -224,7 +349,11 @@
     }
 
     function updateDashboard() {
-      //console.log([currentCountryId, currentXattrId, currentYattrId]);
+      console.log([currentCountryId, currentXattrId, currentYattrId]);
+      d3.select('#regionDisplay')
+        .text("Region: " + countrylist[currentCountryId][2]);
+      d3.select('#incomeDisplay')
+        .text("Income Level: " + countrylist[currentCountryId][3]);
       let url = new URL(urlGetData);
       url.search = new URLSearchParams({
         "qtype":"data", "country":countrylist[currentCountryId][0], 
@@ -234,9 +363,16 @@
       fetch(url,{"credentials": "same-origin"})
         .then(response => response.json())
         .then(fetchedData => {
-          let xygraphData = fetchedData["xygraph"];
-          let xmin = fetchedData["xmin"], xmax = fetchedData["xmax"], ymin = fetchedData["ymin"], ymax = fetchedData["ymax"];
-          renderXygraph(xygraphData, xmin, xmax, ymin, ymax, 500, 500, xygraphMargin);
+          const xygraphData = fetchedData["xygraph"];
+          const xmin = fetchedData["xmin"], 
+            xmax = fetchedData["xmax"], 
+            ymin = fetchedData["ymin"], 
+            ymax = fetchedData["ymax"],
+            yearmin = fetchedData["yearmin"],
+            yearmax = fetchedData["yearmax"];
+          const remoteXgraphHandler = renderLinegraph(xygraphData, currentXattrId, 0, yearmin, yearmax, xmin, xmax, 300, 500, xygraphMargin, "xgraph");
+          const remoteYgraphHandler = renderLinegraph(xygraphData, currentYattrId, 1, yearmin, yearmax, ymin, ymax, 300, 500, xygraphMargin, "ygraph");
+          renderXygraph(xygraphData, xmin, xmax, ymin, ymax, 605, 605, xygraphMargin, remoteXgraphHandler, remoteYgraphHandler);
         });
     }
 
