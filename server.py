@@ -154,8 +154,13 @@ def getData():
 
 @app.route('/favicon.ico')
 def favicon():
-    return send_from_directory(os.path.join(app.root_path, 'static'),
-      'favicon.ico',mimetype='image/vnd.microsoft.icon')
+  return send_from_directory(os.path.join(app.root_path, 'static'),
+    'favicon.ico',mimetype='image/vnd.microsoft.icon')
+
+@app.route('/d3.v6.min.js')
+def getD3js():
+  return send_from_directory(os.path.join(app.root_path, 'static'),
+    'd3.v6.min.js',mimetype='text/javascript')
 
 '''
   Main part
