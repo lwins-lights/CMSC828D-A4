@@ -61,7 +61,9 @@ This is the main interactive element in our dashboard.  We decided to realize it
   * A possible alternative is to only put some points (scatter graph) in the 2D space. Note that this will result in a better data-ink ratio [3]. However, this encoding will nearly lose the information of the `year` attribute, which we considered unfavorable.
 
 [1] Tufte, Edward R. "The visual display of quantitative information." Chapter 3. The Journal for Healthcare Quality (JHQ) 7.3 (1985): 15.
+
 [2] Steve Franconeri. "Thinking with Data Visualizations, Fast and Slow." OpenVis Conf 2018.
+
 [3] Tufte, Edward R. "The visual display of quantitative information." Chapter 6. The Journal for Healthcare Quality (JHQ) 7.3 (1985): 15.
 
 ### Line Graphs
@@ -71,6 +73,7 @@ The design tells itself. So, we directly discuss an alternative design here.
   * Another possible modification is to use shaded area rather than a single curve to encode the data (time series). Actually, this is suggested by Tufte in [4]. However, we finally decided not to use this design because (i) a line graph has a better data-ink ratio [3] and (ii) a shaded area may suggest the user to think that higher value is better, which is clearly not the case if the attribute is, say, neonatal mortality rate.
 
 [3] Tufte, Edward R. "The visual display of quantitative information." Chapter 6. The Journal for Healthcare Quality (JHQ) 7.3 (1985): 15.
+
 [4] Tufte, Edward R. "The visual display of quantitative information." Chapter 9. The Journal for Healthcare Quality (JHQ) 7.3 (1985): 15.
 
 ### Histograms
@@ -78,6 +81,7 @@ The design tells itself. So, we directly discuss an alternative design here.
 * __Alternative Design.__ Clearly, a possible modification is to use line graphs here to achieve a better data-ink ratio [3]. Note that we faced a similar situation when deciding whether to use line graphs in the previous Line Graphs section. So why we finally used ___shaded area___ (i.e., canonical histogram) here? The answer is that in this case, the argument (ii) in the previous section completely breaks down: using shaded area here will not trigger any confusion, because the area (or equivalently the height since the width is constant) of a bin is proportional to the frequency, which is undoubtedly an ___positively accumulating___ attribute. Furthermore, using histograms here is suggested by Tufte because it is a high contrast display [4].
 
 [3] Tufte, Edward R. "The visual display of quantitative information." Chapter 6. The Journal for Healthcare Quality (JHQ) 7.3 (1985): 15.
+
 [4] Tufte, Edward R. "The visual display of quantitative information." Chapter 9. The Journal for Healthcare Quality (JHQ) 7.3 (1985): 15.
 
 ## Overview of the Development Process
