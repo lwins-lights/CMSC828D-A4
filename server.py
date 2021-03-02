@@ -7,6 +7,8 @@ except ImportError:
 from flask import Flask,request,Response,render_template,send_from_directory
 import psycopg2
 import os
+import colorama
+from colorama import Fore, Style
 
 '''
   errMsg(): Print an error message
@@ -18,8 +20,9 @@ def errMsg(str):
   debugMsg(): Print a debug message
 '''
 def debugMsg(str):
-  print('[DEBUG]', end=' ')
-  print(str)
+  print(Fore.BLUE + "[DEBUG]", end=' ')
+  print(str, end = '')
+  print(Style.RESET_ALL)
 
 '''
   msg(): Print a normal message
@@ -36,7 +39,11 @@ def fastExe(conn, comm):
   debugMsg(comm)
   cur = conn.cursor()
   cur.execute(comm)
-  data = cur.fetchall()
+  try:
+    data = cur.fetchall()
+  except:
+    data = [];
+    pass
   conn.commit()
   cur.close()
   return data
@@ -143,6 +150,28 @@ def init(app):
   except Exception as err:
     errMsg('Failed to connect to the PostgreSQL server.')
     raise err
+  fastExe(conn, "DROP TABLE IF EXISTS nations;")
+  fastExe(conn,
+    '''
+      CREATE TABLE nations (
+      iso2c VARCHAR ( 15 ),
+      iso3c VARCHAR ( 15 ),
+      country VARCHAR ( 255 ),
+      year FLOAT,
+      gdp_percap FLOAT,
+      life_expect FLOAT,
+      population FLOAT,
+      birth_rate FLOAT,
+      neonat_mortal_rate FLOAT,
+      region VARCHAR ( 255 ),
+      income VARCHAR ( 255 ) 
+    );
+    ''')
+  fastExe(conn,
+    "COPY nations FROM '" +
+    os.path.join(app.root_path, 'data/nations.csv') +
+    "' DELIMITER ',' CSV HEADER" 
+  )
   return conn
 
 @app.route('/')
