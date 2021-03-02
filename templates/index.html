@@ -4,15 +4,7 @@
 <head>
   <title>CMSC828D A2 (Yufan Zheng)</title>
   <script src="d3.v6.min.js"></script>
-  <!--
-  <script src="https://unpkg.com/d3-simple-slider"></script>
-  <link
-  rel="stylesheet"
-  href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
-  integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO"
-  crossorigin="anonymous"
-  />
-  -->
+  <script src="d3-simple-slider.min.js"></script>
   <style>
     .overlay {
       fill: none;
@@ -28,10 +20,16 @@
 <body>
   <div class="container", id="myContainer">
     <h1>CMSC828D A2 (Yufan Zheng)</h1>
-    <select id="selectButton_country"></select>
-    <select id="selectButton_xattr"></select>
-    <select id="selectButton_yattr"></select>
-    <div style="height: 130px;">
+    <div>
+      <div style="float: left; width: 250px">
+        <select id="selectButton_country"></select><br>
+        <select id="selectButton_xattr"></select><br>
+        <select id="selectButton_yattr"></select>
+      </div>
+      <div style="float: left;">
+        <p>Total Bins:</p>
+        <div class="col-sm"><div id="bin-slider"></div></div>
+      </div>
       <div style="float: left; margin-right: 50px">
         <p id="yearDisplay"></p>
         <p id="xattrDisplay"></p>
@@ -42,14 +40,22 @@
         <p id="incomeDisplay"></p>
       </div>
     </div>
+    <br style="clear:both" />
     <div class="container">
       <div id="xygraph", style="float: left;"></div>
-      <div id="xgraph"></div>
-      <div id="ygraph"></div>
+      <div style="float: left;">
+        <div id="xgraph"></div>
+        <div id="ygraph"></div>
+      </div>
+      <div style="float: left;">
+        <div id="xhisgraph"></div>
+        <div id="yhisgraph"></div>
+      </div>
     </div>
   </div>
 
   <script>
+    const epsilon = 1e-8;
     const xygraphMargin = ({top: 20, right: 30, bottom: 40, left: 50});
     const formatValuePrecision = 3;
     const urlGetData = "http://localhost:10007/get-data";
@@ -62,14 +68,20 @@
     ];
     let countrylist = null;
     let currentCountryId = 88, currentXattrId = 0, currentYattrId = 3;
+    let currentTotalBins = 10;
+    let currentYear = 0; // this is for determining if we need to fetch histogram data from the server
+
+    function myceil(x) {
+      return Math.ceil(x * (1 + epsilon));
+    }
 
     function formatValue(x, prec) {
       let l = Math.log10(x);
-      if (l <= 0) return x.toFixed(prec);
-      if (l > 0 && l <= 3) return x.toFixed(prec - Math.ceil(l));
-      if (l > 3 && l <= 6) return (x/1000.0).toFixed(prec + 3 - Math.ceil(l)) + "k";
-      if (l > 6 && l <= 9) return (x/1000000.0).toFixed(prec + 6 - Math.ceil(l)) + "m";
-      if (l > 9) return (x/1000000000.0).toFixed(prec + 9 - Math.ceil(l)) + "b";
+      if (l < 0) return x.toFixed(prec);
+      if (l >= 0 && l < 3) return x.toFixed(prec - myceil(l));
+      if (l >= 3 && l < 6) return (x/1000.0).toFixed(prec + 3 - myceil(l)) + "k";
+      if (l >= 6 && l < 9) return (x/1000000.0).toFixed(prec + 6 - myceil(l)) + "m";
+      if (l >= 9) return (x/1000000000.0).toFixed(prec + 9 - myceil(l)) + "b";
     }
 
     // removes the content inside of the given DOM element 
@@ -94,6 +106,81 @@
         }
       }
       return data[runningArg];
+    }
+    function renderHistogram(data, focusData, mn, mx, maxcount, height, width, margin, nodeName, attrId) {
+      clearNode(nodeName);
+      const svg = d3.select("#" + nodeName).append("svg")
+        .attr("width",width)
+        .attr("height",height);
+      
+      //console.log([mn,mx]);
+      let x = d3.scaleLinear()
+        .domain([mn, mx])
+        .range([margin.left, width - margin.right]);
+  
+      let y = d3.scaleLinear()
+        .domain([0, maxcount]).nice()
+        .range([height - margin.bottom, margin.top]);
+
+      let xAxis = g => g
+        .attr("transform", `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x).
+          ticks(currentTotalBins).
+          tickFormat(d => formatValue(d, formatValuePrecision))
+        );
+  
+      let yAxis = g => g
+        .attr("transform", `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y).ticks(10));
+
+      svg.append("g")
+        .attr("fill", "lightsteelblue")
+        .selectAll("rect")
+        .data(data)
+        .join("rect")
+          .attr("x", d => {return x(d[2]) + 1;})
+          .attr("width", d => Math.max(0, x(d[3])-x(d[2])-1))
+          .attr("y", d => {return y(d[1]);})
+          .attr("height", d => y(0) - y(d[1]));
+  
+      svg.append("g")
+          .call(xAxis);
+  
+      svg.append("g")
+          .call(yAxis);
+
+      const focus = svg.append('g')
+        .style('display', 'null');
+                
+      focus.append('circle')
+        .attr('id', 'focusCircle')
+        .attr('r', 5)
+        .attr("fill", "black")
+
+      focus.select('#focusCircle')
+        .attr('cx', x(focusData))
+        .attr('cy', y(0));
+
+      svg.append("text")
+        .attr("class", "x label")
+        .attr("text-anchor", "end")
+        .attr("x", width - margin.right + 10)
+        .attr("y", height - 10)
+        .attr("dy", ".35em")
+        .attr("font-size", "12px")
+        .attr("font-family", "sans-serif")
+        .text(attributes[attrId].displayedText + attributes[attrId].unit + ", " + currentYear);
+
+      svg.append("text")
+        .attr("class", "y label")
+        .attr("text-anchor", "end")
+        .attr("x", -10)
+        .attr("y", 6)
+        .attr("dy", ".35em")
+        .attr("transform", "rotate(-90)")
+        .attr("font-size", "12px")
+        .attr("font-family", "sans-serif")
+        .text("Number of countries");
     }
 
     function renderLinegraph(data, attrId, attrBooleanId, xmin, xmax, ymin, ymax, height, width, margin, nodeName) {
@@ -251,13 +338,13 @@
         .attr('orient', 'auto')
         .append('path')
         .attr('d', 'M 0 0 12 6 0 12 3 6')
-        .style('fill', 'steelblue');
+        .style('fill', 'orange');
     
       const path = svg.append("path")
         .attr("clip-path", "url(#xygraph-clip)")
         .datum(data)
         .attr("fill", "none")
-        .attr("stroke", "steelblue")
+        .attr("stroke", "orange")
         .attr("stroke-width", 3)
         .attr("stroke-linejoin", "round")
         .attr("stroke-linecap", "round")
@@ -314,6 +401,7 @@
           focus.style('display', 'none'); 
           xgHandle.focus.style('display', 'none'); 
           ygHandle.focus.style('display', 'none'); 
+          currentYear = 0;
         })
         .on('mousemove', function(event) { 
           let mouse = d3.pointer(event);
@@ -341,6 +429,34 @@
               formatValue(focusData[1], formatValuePrecision) + attributes[currentYattrId].suffixUnit);
           d3.select('#yearDisplay')
             .text("Year: " + focusData[2].toString());
+
+          if (currentYear != focusData[2]) {
+            currentYear = focusData[2];
+            let url = new URL(urlGetData);
+            url.search = new URLSearchParams({
+              "qtype":"data_his",
+              "bins":currentTotalBins,
+              "xattr":attributes[currentXattrId].colname,
+              "yattr":attributes[currentYattrId].colname,
+              "year":currentYear
+            }).toString();
+            fetch(url,{"credentials": "same-origin"})
+              .then(response => response.json())
+              .then(fetchedData => {
+                //console.dir(fetchedData);
+                renderHistogram(
+                  fetchedData.xdata.data, focusData[0], 
+                  fetchedData.xdata.mn, fetchedData.xdata.mx, 
+                  fetchedData.xdata.maxcount, 300, 500, xygraphMargin, 
+                  "xhisgraph", currentXattrId);
+                renderHistogram(
+                  fetchedData.ydata.data, focusData[1], 
+                  fetchedData.ydata.mn, fetchedData.ydata.mx, 
+                  fetchedData.ydata.maxcount, 300, 500, xygraphMargin, 
+                  "yhisgraph", currentYattrId);
+              });
+          }
+
         });
 
       //console.dir(data);
@@ -349,7 +465,7 @@
     }
 
     function updateDashboard() {
-      console.log([currentCountryId, currentXattrId, currentYattrId]);
+      //console.log([currentCountryId, currentXattrId, currentYattrId]);
       d3.select('#regionDisplay')
         .text("Region: " + countrylist[currentCountryId][2]);
       d3.select('#incomeDisplay')
@@ -374,6 +490,38 @@
           const remoteYgraphHandler = renderLinegraph(xygraphData, currentYattrId, 1, yearmin, yearmax, ymin, ymax, 300, 500, xygraphMargin, "ygraph");
           renderXygraph(xygraphData, xmin, xmax, ymin, ymax, 605, 605, xygraphMargin, remoteXgraphHandler, remoteYgraphHandler);
         });
+    }
+
+    function createBinsSlider() {
+      clearNode("bin-slider");
+      let slider = d3
+        .sliderBottom()
+        .min(1)
+        .max(20)
+        .width(300)
+        .ticks(5)
+        .step(1)
+        .default(currentTotalBins)
+        .fill("#2196f3")
+        .on("onchange", totalBins => {
+          d3.select("p#bin-value").text(totalBins);
+          currentTotalBins = totalBins;
+        });
+  
+      let gRange = d3
+        .select("div#bin-slider")
+        .append("svg")
+        .attr("width", 400)
+        .attr("height", 70)
+        .append("g")
+        .attr("transform", "translate(30,20)");
+  
+      gRange.call(slider);
+  
+      d3.select("p#bin-value").text(
+        slider
+          .value()
+      );
     }
 
     function createSelectButtons(countrylist, attributes) {
@@ -429,385 +577,8 @@
       .then(fetchedData => {
         countrylist = fetchedData["countrylist"];
         createSelectButtons(countrylist, attributes);
+        createBinsSlider();
         updateDashboard();
       });
-
-    //console.log(formatValue(0.12345));
-    /*
-    let url = new URL(urlGetData);
-    url.search = new URLSearchParams({"qtype":"data", "country":"United States", "yattr":"gdp_percap", "xattr":"population"}).toString();
-    fetch(url,{"credentials": "same-origin"})
-    .then(response => response.json())
-    .then(fetchedData => {
-      let xygraphData = fetchedData["xygraph"];
-      let xmin = fetchedData["xmin"], xmax = fetchedData["xmax"], ymin = fetchedData["ymin"], ymax = fetchedData["ymax"];
-      renderXygraph(xygraphData, xmin, xmax, ymin, ymax, 500, 500, xygraphMargin);
-    });
-    */
   </script>
 </body>
-
-<!--
-<body>
-<div class="container">
-  <h1>CMSC828D -- A1</h1>
-  <div class="row align-items-center">
-    <div class="col-sm-2"><span>Attributes:</span></div>
-    <div id="attributes">
-    </div>
-  </div>
-  <div class="row align-items-center">
-    <div class="col-sm-2"><span>Total Bins:</span><p id="bin-value"></p></div>
-    <div class="col-sm"><div id="bin-slider"></div></div>
-  </div>
-  <div class="row align-items-center">
-    <div class="col-sm-2"><span>Filter Range:</span><p id="value-range"></p></div>
-    <div class="col-sm"><div id="slider-range"></div></div>
-  </div>
-  <div id="vis">
-</div>
-
-<script>
-  const margin = {top: 20, right: 20, bottom: 55, left: 50}; // margins of the visualization (for the axes labels and ticks)
-  const height = 300; // height of the visualization
-  const width = 800; // width of the visualization
-  const prec = 2, lb = 0.001, ub = 1000;
-  let currentAttribute = null; // to keep track of the last attribute that was clicked in the interface
-  let currentTotalBins = null; // to keep track of numbers of bins
-  let num = null; // number of rows; only used for generating scales
-
-
-  /*
-    Convert a real to a scientific notation if it is out of range
-    Also control the length of the result
-  */
-  function convertToSciForm(x) {
-    if ((x < lb) || (x > ub)) {
-      return x.toExponential(prec);
-    } else {
-      return x.toFixed(prec);
-    }
-  }
-
-  /*
-    For extracting BinRanges from the aggregated data
-    NO COMPUTATION INVOLVED EXCEPT FOR INTERNAL FORMATTING
-  */
-  function myExtractBinRanges(agg) {
-    let binRanges = [];
-    for (let i = 0; i < agg.length; i++) {
-      binRanges.push({"rangeMin":agg[i][2],"rangeMax":agg[i][3]})
-    }
-    return binRanges;
-  }
-
-  /*
-    For extracting BinCounts from BinRanges, which in turn comes from the aggregated data
-    NO COMPUTATION INVOLVED EXCEPT FOR INTERNAL FORMATTING
-  */
-  function myExtractBins(agg,binRanges) {
-    let res = [];
-    let j = 0;
-    for (let i = 0; i < binRanges.length; i++) {
-      if ((j < agg.length) && (binRanges[i]["rangeMin"] == agg[j][2])) {
-        res.push(agg[j][1]);
-        j++;
-      } else {
-        res.push(0);
-      }
-    }
-    return res;
-  }
-
-  // update the current histogram with new binCounts, binRanges is the same
-  function updateHistogram(margin,height,width,binCounts, binRanges, x, y) {
-    d3.select("#vis svg").selectAll("rect")
-      .data(binRanges)
-      .join("rect")
-        .attr("x", d => x(d.rangeMin) + 1)
-        .attr("width", d => Math.max(0, x(d.rangeMax) - x(d.rangeMin) - 1))
-        .attr("y", (d,i) => {/*console.log(d); console.log(i.toString());*/ return y(binCounts[i]); })
-        .attr("height", (d,i) => y(0) - y(binCounts[i]));
-  }
-  
-  // create a new histogram with new binCounts and binRanges
-  function renderHistogram(margin,height,width, binCounts, binRanges) {
-    clearNode("vis");
-    const svg = d3.select("#vis").append("svg")
-      .attr("width",width)
-      .attr("height",height);
-
-    let x = d3.scaleLinear()
-      .domain([binRanges[0].rangeMin, binRanges[binRanges.length - 1].rangeMax])
-      .range([margin.left, width - margin.right]);
-
-    let y = d3.scaleLinear()
-      .domain([0, d3.max(binCounts)]).nice()
-      .range([height - margin.bottom, margin.top]);
-
-    let y2 = d3.scaleLinear()
-      .domain([0, d3.max(binCounts)*currentTotalBins*1.0/num])
-      .range([height - margin.bottom, margin.top]);
-
-    let xAxis = g => g
-      .attr("transform", `translate(0,${height - margin.bottom})`)
-      .call(d3.axisBottom(x).ticks(currentTotalBins))
-        .selectAll("text")
-        .attr("y", 0)
-        .attr("x", 9)
-        .attr("dy", ".35em")
-        .attr("transform", "rotate(90)")
-        .style("text-anchor", "start");
-
-    let yAxis = g => g
-      .attr("transform", `translate(${margin.left},0)`)
-      .call(d3.axisLeft(y).ticks(10));
-
-    let yAxis2 = g => g
-      .attr("transform", `translate(${margin.left},0)`)
-      .call(d3.axisRight(y2));
-
-    svg.append("g")
-        .attr("fill", "lightsteelblue")
-      .selectAll("rect")
-      .data(binRanges)
-      .join("rect")
-        .attr("x", d => x(d.rangeMin) + 1)
-        .attr("width", d => Math.max(0, x(d.rangeMax) - x(d.rangeMin) - 1))
-        .attr("y", (d,i) => y(binCounts[i]))
-        .attr("height", (d,i) => y(0) - y(binCounts[i]));
-
-    svg.append("g")
-        .call(xAxis);
-
-    svg.append("g")
-        .call(yAxis);
-
-    svg.append("g")
-        .call(yAxis2);
-
-    svg.append("text")
-      .attr("class", "y label")
-      .attr("text-anchor", "end")
-      .attr("x", -10)
-      .attr("y", 6)
-      .attr("dy", ".35em")
-      .attr("transform", "rotate(-90)")
-      .attr("font-size", "14px")
-      .attr("font-family", "sans-serif")
-      .text("frequency");
-
-    svg.append("text")
-      .attr("class", "y label")
-      .attr("text-anchor", "end")
-      .attr("x", -10)
-      .attr("y", 6)
-      .attr("dy", "6.5em")
-      .attr("transform", "rotate(-90)")
-      .attr("font-size", "14px")
-      .attr("font-family", "sans-serif")
-      .text("normalized density");
-
-    svg.append("text")
-      .attr("class", "x label")
-      .attr("text-anchor", "end")
-      .attr("x", width)
-      .attr("y", height - 15)
-      .attr("font-size", "14px")
-      .attr("font-family", "sans-serif")
-      .text(currentAttribute);
-  
-    return [x,y];
-  }
-
-  // removes the content inside of the given DOM element 
-  function clearNode(identifier) {
-    const myNode = document.getElementById(identifier);
-    myNode.textContent = '';
-  }
-   
-
-  /*
-    Create a slider to filter the data based on certain value ranges
-    NO COMPUTATION INVOLVED EXCEPT FOR INTERNAL FORMATTING
-  */
-  function myCreateRangeSlider(mn,mx,agg,binRanges,x,y) {
-    clearNode("slider-range");
-    clearNode("value-range");
-    let sliderRange = d3
-      .sliderBottom()
-      .min(mn)
-      .max(mx)
-      .width(300)
-      .ticks(5)
-      .default([mn, mx])
-      .fill("#2196f3")
-      .on("onchange", valRange => {
-        d3.select("p#value-range").text(convertToSciForm(valRange[0]) + ' - ' + convertToSciForm(valRange[1]));
-        let url2 = new URL("http://localhost:8000/get-data");
-        url2.search = new URLSearchParams({"qtype":"data","attr":currentAttribute,"totalbins":currentTotalBins,"rangelo":valRange[0],"rangehi":valRange[1]}).toString();
-        fetch(url2,{"credentials": "same-origin"})
-        .then(response => response.json())
-        .then(fetchedData => {
-          agg2 = fetchedData[0];
-          binCounts = myExtractBins(agg2,binRanges);
-          updateHistogram(margin,height,width,binCounts, binRanges, x, y);
-        });
-      });
-  
-    let gRange = d3
-      .select("div#slider-range")
-      .append("svg")
-      .attr("width", 500)
-      .attr("height", 100)
-      .append("g")
-      .attr("transform", "translate(30,30)");
-  
-    gRange.call(sliderRange);
-  
-    d3.select("p#value-range").text(
-      convertToSciForm(sliderRange.value()[0]) + ' - ' + convertToSciForm(sliderRange.value()[1])
-    );
-  }
-
-  // creates a button for each data attribute in the retrieved CSV file (movies.csv)
-  function createAttributeButtons(data) {
-    clearNode("attributes");
-    d3.select("#attributes")
-      .selectAll("button")
-      .data(Object.keys(data[0]))
-      .join("button")
-      .text(d => d)
-      .on("click", (e, attributeName) => {
-        currentAttribute = attributeName;
-        let filteredData = data.map(d => +d[currentAttribute]);
-        let mn = d3.min(filteredData);
-        let mx = d3.max(filteredData);
-        const totalBins = 10;
-        let binRanges = computeBinRanges(mn,mx,totalBins);
-        let newBins = computeBins(filteredData,binRanges);
-        let scales = renderHistogram(margin,height,width,newBins, binRanges);
-        let x = scales[0];
-        let y = scales[1];
-        createBinsSlider(mn,mx,filteredData);
-        createRangeSlider(mn,mx,filteredData,binRanges,x,y);
-      });
-  }
-
-  /*
-    Creates a button for each data attribute
-    --------------------------------------------------
-    col: list of attributes
-  */
-  function myCreateAttributeButtons(col) {
-    clearNode("attributes");
-    d3.select("#attributes")
-      .selectAll("button")
-      .data(col)
-      .join("button")
-      .text(d => d)
-      .on("click", (e, attributeName) => {
-        currentAttribute = attributeName;
-        const totalBins = 10;
-        currentTotalBins = totalBins;
-        let url2 = new URL("http://localhost:8000/get-data");
-        url2.search = new URLSearchParams({"qtype":"data","attr":currentAttribute,"totalbins":totalBins,"rangelo":"default","rangehi":"default"}).toString();
-        fetch(url2,{"credentials": "same-origin"})
-        .then(response => response.json())
-        .then(fetchedData => {
-          mn = fetchedData[1];
-          mx = fetchedData[2];
-          agg2 = fetchedData[0];
-          let binRanges = myExtractBinRanges(agg2);
-          let newBins = myExtractBins(agg2,binRanges);
-          let scales = renderHistogram(margin,height,width,newBins,binRanges);
-          let x = scales[0];
-          let y = scales[1];
-          myCreateBinsSlider(mn,mx,agg2);
-          myCreateRangeSlider(mn,mx,agg2,binRanges,x,y);
-        });
-      });
-  }
-
-  /*
-    Create a slider to modify how many bins are used in the histogram
-  */
-  function myCreateBinsSlider(mn,mx,agg) {
-    clearNode("bin-slider");
-    let slider = d3
-      .sliderBottom()
-      .min(1)
-      .max(30)
-      .width(300)
-      .ticks(5)
-      .step(1)
-      .default(10)
-      .fill("#2196f3")
-      .on("onchange", totalBins => {
-        d3.select("p#bin-value").text(totalBins);
-        let url2 = new URL("http://localhost:8000/get-data");
-        url2.search = new URLSearchParams({"qtype":"data","attr":currentAttribute,"totalbins":totalBins,"rangelo":"default","rangehi":"default"}).toString();
-        currentTotalBins = totalBins;
-        fetch(url2,{"credentials": "same-origin"})
-        .then(response => response.json())
-        .then(fetchedData => {
-          agg2 = fetchedData[0];
-          let binRanges = myExtractBinRanges(agg2);
-          let binCounts = myExtractBins(agg2,binRanges);
-          let scales = renderHistogram(margin,height,width,binCounts, binRanges);
-          let x = scales[0];
-          let y = scales[1];
-          myCreateRangeSlider(mn,mx,agg2,binRanges,x,y);
-        });
-      });
-
-    let gRange = d3
-      .select("div#bin-slider")
-      .append("svg")
-      .attr("width", 500)
-      .attr("height", 100)
-      .append("g")
-      .attr("transform", "translate(30,30)");
-
-    gRange.call(slider);
-
-    d3.select("p#bin-value").text(
-      slider
-        .value()
-    );
-  }
-
-  // initial creation of the attribute buttons, sliders, and histogram
-  // fetch enables GET and POST requests to the server (run using server.py)
-  
-  let url = new URL("http://localhost:8000/get-data");
-  url.search = new URLSearchParams({"qtype":"init"}).toString();
-  fetch(url,{"credentials": "same-origin"})
-  .then(response => response.json())
-  .then(fetchedData => {
-    let attr = fetchedData["attr"];
-    num = fetchedData["num"]
-    currentAttribute = attr[0]; // set default attribute
-    myCreateAttributeButtons(attr);
-    const totalBins = 10;
-    currentTotalBins = totalBins;
-    let url2 = new URL("http://localhost:8000/get-data");
-    url2.search = new URLSearchParams({"qtype":"data","attr":currentAttribute,"totalbins":totalBins,"rangelo":"default","rangehi":"default"}).toString();
-    fetch(url2,{"credentials": "same-origin"})
-    .then(response => response.json())
-    .then(fetchedData => {
-      mn = fetchedData[1];
-      mx = fetchedData[2];
-      agg = fetchedData[0];
-      let binRanges = myExtractBinRanges(agg);
-      let newBins = myExtractBins(agg,binRanges);
-      let scales = renderHistogram(margin,height,width,newBins, binRanges);
-      let x = scales[0];
-      let y = scales[1];
-      myCreateBinsSlider(mn,mx,agg);
-      myCreateRangeSlider(mn,mx,agg,binRanges,x,y);
-    });
-  });
-</script>
-</body>
--->
