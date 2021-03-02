@@ -96,7 +96,7 @@ We develop the system mainly in an incremental manner.
 | 15.1h | 0.4h | We let the server output colored PostgreSQL commands for graders' convenience. We also automated the process of initial PostgreSQL data loading from `data/nations.csv`.|
 | 17.1h | 2h | We tested our system in a new virtual machine. |
 | 19.2h | 2.1h | We finished this document you are reading. ;-) |
-
+Clearly, the part that took the most time is making the 2D Progression Graph interactive (zooming & focus system). 
 
 ## Acknowledgment
 * The data is downloaded from a course [homepage](https://paldhous.github.io/ucb/2016/dataviz/datasets.html) of Peter Aldhous. It is accredited to [World Bank Indicators](https://data.worldbank.org/indicator/all) portal.
