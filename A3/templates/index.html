@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+
+<head>
+  <title>CMSC828D A2 (Yufan Zheng)</title>
+  <script src="d3.v6.min.js"></script>
+  <script src="d3-simple-slider.min.js"></script>
+  <style>
+    .overlay {
+      fill: none;
+      stroke: none;
+      pointer-events: all;
+    }
+    body {
+      font-family: Times New Roman;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container", id="myContainer">
+    <h1>CMSC828D A2 (Yufan Zheng)</h1>
+    <div>
+      <div style="float: left; width: 250px">
+        <select id="selectButton_country"></select><br>
+        <select id="selectButton_xattr"></select><br>
+        <select id="selectButton_yattr"></select>
+      </div>
+      <div style="float: left;">
+        <p>Total Bins:</p>
+        <div class="col-sm"><div id="bin-slider"></div></div>
+      </div>
+      <div style="float: left; margin-right: 50px">
+        <p id="yearDisplay"></p>
+        <p id="xattrDisplay"></p>
+        <p id="yattrDisplay"></p>
+      </div>
+      <div style="float: left;">
+        <p id="regionDisplay"></p>
+        <p id="incomeDisplay"></p>
+      </div>
+    </div>
+    <br style="clear:both" />
+    <div class="container">
+      <div id="xygraph", style="float: left;"></div>
+      <div style="float: left;">
+        <div id="xgraph"></div>
+        <div id="ygraph"></div>
+      </div>
+      <div style="float: left;">
+        <div id="xhisgraph"></div>
+        <div id="yhisgraph"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const epsilon = 1e-8;
+    const xygraphMargin = ({top: 20, right: 30, bottom: 40, left: 50});
+    const formatValuePrecision = 3;
+    const urlGetData = "http://localhost:10007/get-data";
+    const attributes = [
+      {"displayedText":"GDP per Capita", "colname":"gdp_percap", "aid":0, "suffixUnit": " USD", "unit": " (USD)"},
+      {"displayedText":"Life Expectancy", "colname":"life_expect", "aid":1, "suffixUnit": " years", "unit": " (years)"},
+      {"displayedText":"Population", "colname":"population", "aid":2, "suffixUnit":"", "unit": ""},
+      {"displayedText":"Birth Rate", "colname":"birth_rate", "aid":3, "suffixUnit":" per 1k people", "unit":" (per 1k people)"},
+      {"displayedText":"Neonatal Mortality Rate", "colname":"neonat_mortal_rate", "aid":4, "suffixUnit":" per 1k births", "unit":" (per 1k births)"}
+    ];
+    let countrylist = null;
+    let currentCountryId = 88, currentXattrId = 0, currentYattrId = 3;
+    let currentTotalBins = 10;
+    let currentYear = 0; // this is for determining if we need to fetch histogram data from the server
+
+    function myceil(x) {
+      return Math.ceil(x * (1 + epsilon));
+    }
+
+    function formatValue(x, prec) {
+      let l = Math.log10(x);
+      if (l < 0) return x.toFixed(prec);
+      if (l >= 0 && l < 3) return x.toFixed(prec - myceil(l));
+      if (l >= 3 && l < 6) return (x/1000.0).toFixed(prec + 3 - myceil(l)) + "k";
+      if (l >= 6 && l < 9) return (x/1000000.0).toFixed(prec + 6 - myceil(l)) + "m";
+      if (l >= 9) return (x/1000000000.0).toFixed(prec + 9 - myceil(l)) + "b";
+    }
+
+    // removes the content inside of the given DOM element 
+    function clearNode(identifier) {
+      const myNode = document.getElementById(identifier);
+      myNode.textContent = '';
+    }
+
+    function sqr(x) {
+      return x*x;
+    }
+
+    function attract(c, data, xw, yw) {
+      let runningMin = Infinity;
+      let runningArg = 0;
+      let temp = null;
+      for (let i = 0; i < data.length; i++) {
+        temp = sqr(xw * (c[0] - data[i][0])) + sqr(yw * (c[1] - data[i][1]));
+        if (temp < runningMin) {
+          runningMin = temp;
+          runningArg = i;
+        }
+      }
+      return data[runningArg];
+    }
+    function renderHistogram(data, focusData, mn, mx, maxcount, height, width, margin, nodeName, attrId) {
+      clearNode(nodeName);
+      const svg = d3.select("#" + nodeName).append("svg")
+        .attr("width",width)
+        .attr("height",height);
+      
+      //console.log([mn,mx]);
+      let x = d3.scaleLinear()
+        .domain([mn, mx])
+        .range([margin.left, width - margin.right]);
+  
+      let y = d3.scaleLinear()
+        .domain([0, maxcount]).nice()
+        .range([height - margin.bottom, margin.top]);
+
+      let xAxis = g => g
+        .attr("transform", `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x).
+          ticks(currentTotalBins).
+          tickFormat(d => formatValue(d, formatValuePrecision))
+        );
+  
+      let yAxis = g => g
+        .attr("transform", `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y).ticks(10));
+
+      svg.append("g")
+        .attr("fill", "lightsteelblue")
+        .selectAll("rect")
+        .data(data)
+        .join("rect")
+          .attr("x", d => {return x(d[2]) + 1;})
+          .attr("width", d => Math.max(0, x(d[3])-x(d[2])-1))
+          .attr("y", d => {return y(d[1]);})
+          .attr("height", d => y(0) - y(d[1]));
+  
+      svg.append("g")
+          .call(xAxis);
+  
+      svg.append("g")
+          .call(yAxis);
+
+      const focus = svg.append('g')
+        .style('display', 'null');
+                
+      focus.append('circle')
+        .attr('id', 'focusCircle')
+        .attr('r', 5)
+        .attr("fill", "black")
+
+      focus.select('#focusCircle')
+        .attr('cx', x(focusData))
+        .attr('cy', y(0));
+
+      svg.append("text")
+        .attr("class", "x label")
+        .attr("text-anchor", "end")
+        .attr("x", width - margin.right + 10)
+        .attr("y", height - 10)
+        .attr("dy", ".35em")
+        .attr("font-size", "12px")
+        .attr("font-family", "sans-serif")
+        .text(attributes[attrId].displayedText + attributes[attrId].unit + ", " + currentYear);
+
+      svg.append("text")
+        .attr("class", "y label")
+        .attr("text-anchor", "end")
+        .attr("x", -10)
+        .attr("y", 6)
+        .attr("dy", ".35em")
+        .attr("transform", "rotate(-90)")
+        .attr("font-size", "12px")
+        .attr("font-family", "sans-serif")
+        .text("Number of countries");
+    }
+
+    function renderLinegraph(data, attrId, attrBooleanId, xmin, xmax, ymin, ymax, height, width, margin, nodeName) {
+      clearNode(nodeName);
+      const svg = d3.select("#" + nodeName).append("svg")
+        .attr("width",width)
+        .attr("height",height);
+
+      const x = d3.scaleLinear()
+        .domain([xmin, xmax]).nice()
+        .range([margin.left, width - margin.right]);
+
+      const y = d3.scaleLinear()
+        .domain([ymin, ymax]).nice()
+        .range([height - margin.bottom, margin.top]);
+
+      const xAxis = (g, x) => g
+        .attr("transform", `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x)
+          .tickFormat(d => d)
+          );
+
+      const yAxis = (g, y) => g
+        .attr("transform", `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y)
+          .tickFormat(d => formatValue(d, formatValuePrecision))
+          );
+
+      svg.append("text")
+        .attr("class", "x label")
+        .attr("text-anchor", "end")
+        .attr("x", width - margin.right + 10)
+        .attr("y", height - 10)
+        .attr("dy", ".35em")
+        .attr("font-size", "12px")
+        .attr("font-family", "sans-serif")
+        .text("Year");
+
+      svg.append("text")
+        .attr("class", "y label")
+        .attr("text-anchor", "end")
+        .attr("x", -10)
+        .attr("y", 6)
+        .attr("dy", ".35em")
+        .attr("transform", "rotate(-90)")
+        .attr("font-size", "12px")
+        .attr("font-family", "sans-serif")
+        .text(attributes[attrId].displayedText + attributes[attrId].unit);
+
+      const line = (x, y) => d3.line()
+        .defined(d => !isNaN([0]) && !isNaN([1]))
+        .x(d => x(d[2]))
+        .y(d => y(d[attrBooleanId]));
+
+      const gx = svg.append("g")
+        .call(xAxis, x);
+
+      const gy = svg.append("g")
+        .call(yAxis, y);
+
+      const path = svg.append("path")
+        .datum(data)
+        .attr("fill", "none")
+        .attr("stroke", "steelblue")
+        .attr("stroke-width", 3)
+        .attr("stroke-linejoin", "round")
+        .attr("stroke-linecap", "round")
+        .attr("d", line(x, y));
+
+      const focus = svg.append('g')
+        .style('display', 'none');
+                
+      focus.append('circle')
+        .attr('id', 'focusCircle')
+        .attr('r', 5)
+        .attr("fill", "black")
+
+      return {"x":x, "y":y, "focus":focus};
+    }
+
+    function renderXygraph(data, xmin, xmax, ymin, ymax, height, width, margin, xgHandle, ygHandle) {
+      clearNode("xygraph");
+      const svg = d3.select("#xygraph").append("svg")
+        .attr("width",width)
+        .attr("height",height);
+
+      const x = d3.scaleLinear()
+        .domain([xmin, xmax]).nice()
+        .range([margin.left, width - margin.right]);
+
+      const y = d3.scaleLinear()
+        .domain([ymin, ymax]).nice()
+        .range([height - margin.bottom, margin.top]);
+
+      const xAxis = (g, x) => g
+        .attr("transform", `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x)
+          .tickFormat(d => formatValue(d, formatValuePrecision))
+          );
+
+      const yAxis = (g, y) => g
+        .attr("transform", `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y)
+          .tickFormat(d => formatValue(d, formatValuePrecision))
+          );
+
+      svg.append("text")
+        .attr("class", "x label")
+        .attr("text-anchor", "end")
+        .attr("x", width - margin.right + 10)
+        .attr("y", height - 10)
+        .attr("dy", ".35em")
+        .attr("font-size", "12px")
+        .attr("font-family", "sans-serif")
+        .text(attributes[currentXattrId].displayedText + attributes[currentXattrId].unit);
+
+      svg.append("text")
+        .attr("class", "y label")
+        .attr("text-anchor", "end")
+        .attr("x", -10)
+        .attr("y", 6)
+        .attr("dy", ".35em")
+        .attr("transform", "rotate(-90)")
+        .attr("font-size", "12px")
+        .attr("font-family", "sans-serif")
+        .text(attributes[currentYattrId].displayedText + attributes[currentYattrId].unit);
+
+      const line = (x, y) => d3.line()
+        .defined(d => !isNaN([0]) && !isNaN([1]))
+        .x(d => x(d[0]))
+        .y(d => y(d[1]));
+
+      const gx = svg.append("g")
+        .call(xAxis, x);
+
+      const gy = svg.append("g")
+        .call(yAxis, y);
+
+      svg.append("clipPath")
+          .attr("id", "xygraph-clip")
+        .append("rect")
+          .attr("x", margin.left)
+          .attr("y", margin.top)
+          .attr("width", width - margin.left - margin.right)
+          .attr("height", height - margin.top - margin.bottom);
+
+      svg.append('svg:defs')
+        .append('svg:marker')
+        .attr('id', 'arrow')
+        .attr('refX', 6)
+        .attr('refY', 6)
+        .attr('markerWidth', 30)
+        .attr('markerHeight', 30)
+        .attr('markerUnits', 'userSpaceOnUse')
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M 0 0 12 6 0 12 3 6')
+        .style('fill', 'orange');
+    
+      const path = svg.append("path")
+        .attr("clip-path", "url(#xygraph-clip)")
+        .datum(data)
+        .attr("fill", "none")
+        .attr("stroke", "orange")
+        .attr("stroke-width", 3)
+        .attr("stroke-linejoin", "round")
+        .attr("stroke-linecap", "round")
+        .attr("d", line(x, y))
+        .attr("marker-start","url(#arrow)")
+        .attr("marker-mid","url(#arrow)")
+        .attr("marker-end","url(#arrow)");
+
+      const zoom = d3.zoom()
+        .scaleExtent([1, Infinity])
+        .extent([[margin.left, margin.top], [width - margin.right, height - margin.top]])
+        .translateExtent([[margin.left, margin.top], [width - margin.right, height - margin.top]])
+        .on("zoom", zoomed);
+
+      svg.call(zoom);
+
+      let xz = x;
+      let yz = y;
+
+      const focus = svg.append('g')
+        .style('display', 'none');
+
+      let focusData = [0, 0];
+
+      function zoomed(event) {
+        //console.log(event);
+        xz = event.transform.rescaleX(x);
+        yz = event.transform.rescaleY(y);
+        gx.call(xAxis, xz);
+        gy.call(yAxis, yz);
+        path.attr("d", line(xz, yz));
+        focus.select('#focusCircle')
+          .attr('cx', xz(focusData[0]))
+          .attr('cy', yz(focusData[1]));
+        //path.attr("transform", event.transform)
+      }
+                
+      focus.append('circle')
+        .attr("clip-path", "url(#xygraph-clip)")
+        .attr('id', 'focusCircle')
+        .attr('r', 5)
+        .attr("fill", "black")
+
+      svg.append('rect')
+        .attr('class', 'overlay')
+        .attr('width', width)
+        .attr('height', height)
+        .on('mouseover', function() { 
+          focus.style('display', null); 
+          xgHandle.focus.style('display', null); 
+          ygHandle.focus.style('display', null); 
+        })
+        .on('mouseout', function() { 
+          focus.style('display', 'none'); 
+          xgHandle.focus.style('display', 'none'); 
+          ygHandle.focus.style('display', 'none'); 
+          currentYear = 0;
+        })
+        .on('mousemove', function(event) {
+          let startDate = new Date();
+          let mouse = d3.pointer(event);
+          mouseData = [xz.invert(mouse[0]), yz.invert(mouse[1])];
+          //console.log(mouseData[0].toString() + " " + mouseData[1].toString());
+          focusData = attract(mouseData, data, xz(1) - xz(0), yz(1) - yz(0));
+          //console.log(mouseData[0].toString() + " " + mouseData[1].toString() + " " + focusData[0].toString() + " " + focusData[1].toString() + "/" + xz(focusData[0]).toString());
+          focus.select('#focusCircle')
+            .attr('cx', xz(focusData[0]))
+            .attr('cy', yz(focusData[1]));
+
+          xgHandle.focus.select('#focusCircle')
+            .attr('cx', xgHandle.x(focusData[2]))
+            .attr('cy', xgHandle.y(focusData[0]));
+
+          ygHandle.focus.select('#focusCircle')
+            .attr('cx', ygHandle.x(focusData[2]))
+            .attr('cy', ygHandle.y(focusData[1]));
+          
+          d3.select('#xattrDisplay')
+            .text(attributes[currentXattrId].displayedText + ": " + 
+              formatValue(focusData[0], formatValuePrecision) + attributes[currentXattrId].suffixUnit);
+          d3.select('#yattrDisplay')
+            .text(attributes[currentYattrId].displayedText + ": " + 
+              formatValue(focusData[1], formatValuePrecision) + attributes[currentYattrId].suffixUnit);
+          d3.select('#yearDisplay')
+            .text("Year: " + focusData[2].toString());
+
+          if (currentYear != focusData[2]) {
+            currentYear = focusData[2];
+            let url = new URL(urlGetData);
+            url.search = new URLSearchParams({
+              "qtype":"data_his",
+              "bins":currentTotalBins,
+              "xattr":attributes[currentXattrId].colname,
+              "yattr":attributes[currentYattrId].colname,
+              "year":currentYear
+            }).toString();
+            fetch(url,{"credentials": "same-origin"})
+              .then(response => response.json())
+              .then(fetchedData => {
+                //console.dir(fetchedData);
+                renderHistogram(
+                  fetchedData.xdata.data, focusData[0], 
+                  fetchedData.xdata.mn, fetchedData.xdata.mx, 
+                  fetchedData.xdata.maxcount, 300, 500, xygraphMargin, 
+                  "xhisgraph", currentXattrId);
+                renderHistogram(
+                  fetchedData.ydata.data, focusData[1], 
+                  fetchedData.ydata.mn, fetchedData.ydata.mx, 
+                  fetchedData.ydata.maxcount, 300, 500, xygraphMargin, 
+                  "yhisgraph", currentYattrId);
+                console.log("Delay (Histogram): " + (new Date().getTime() - startDate.getTime()).toString() + "ms")
+              });
+          }
+
+        });
+
+      //console.dir(data);
+      //console.dir([xmin, xmax, ymin, ymax]);
+      return;
+    }
+
+    function updateDashboard() {
+      //console.log([currentCountryId, currentXattrId, currentYattrId]);
+      d3.select('#regionDisplay')
+        .text("Region: " + countrylist[currentCountryId][2]);
+      d3.select('#incomeDisplay')
+        .text("Income Level: " + countrylist[currentCountryId][3]);
+      let url = new URL(urlGetData);
+      url.search = new URLSearchParams({
+        "qtype":"data", "country":countrylist[currentCountryId][0], 
+        "yattr":attributes[currentYattrId].colname, 
+        "xattr":attributes[currentXattrId].colname
+      }).toString();
+      fetch(url,{"credentials": "same-origin"})
+        .then(response => response.json())
+        .then(fetchedData => {
+          const xygraphData = fetchedData["xygraph"];
+          const xmin = fetchedData["xmin"], 
+            xmax = fetchedData["xmax"], 
+            ymin = fetchedData["ymin"], 
+            ymax = fetchedData["ymax"],
+            yearmin = fetchedData["yearmin"],
+            yearmax = fetchedData["yearmax"];
+          const remoteXgraphHandler = renderLinegraph(xygraphData, currentXattrId, 0, yearmin, yearmax, xmin, xmax, 300, 500, xygraphMargin, "xgraph");
+          const remoteYgraphHandler = renderLinegraph(xygraphData, currentYattrId, 1, yearmin, yearmax, ymin, ymax, 300, 500, xygraphMargin, "ygraph");
+          renderXygraph(xygraphData, xmin, xmax, ymin, ymax, 605, 605, xygraphMargin, remoteXgraphHandler, remoteYgraphHandler);
+        });
+    }
+
+    function createBinsSlider() {
+      clearNode("bin-slider");
+      let slider = d3
+        .sliderBottom()
+        .min(1)
+        .max(20)
+        .width(300)
+        .ticks(5)
+        .step(1)
+        .default(currentTotalBins)
+        .fill("#2196f3")
+        .on("onchange", totalBins => {
+          d3.select("p#bin-value").text(totalBins);
+          currentTotalBins = totalBins;
+        });
+  
+      let gRange = d3
+        .select("div#bin-slider")
+        .append("svg")
+        .attr("width", 400)
+        .attr("height", 70)
+        .append("g")
+        .attr("transform", "translate(30,20)");
+  
+      gRange.call(slider);
+  
+      d3.select("p#bin-value").text(
+        slider
+          .value()
+      );
+    }
+
+    function createSelectButtons(countrylist, attributes) {
+      let countries = [];
+      for (let i = 0; i < countrylist.length; i++) {
+        countries.push({"cid":i,"cname":countrylist[i][0]});
+      }
+      
+      d3.select("#selectButton_country")
+        .on("change", function(d){
+          currentCountryId = this.value;
+          updateDashboard();
+        })
+          .selectAll('myOptions')
+            .data(countries)
+            .enter()
+            .append('option')
+            .text(d => d.cname) // text showed in the menu
+            .attr("value", d => d.cid); // corresponding value returned by the button
+      d3.select('#selectButton_country').property('value', currentCountryId);
+
+      d3.select("#selectButton_xattr")
+        .on("change", function(d){
+          currentXattrId = this.value;
+          updateDashboard();
+        })
+          .selectAll('myOptions')
+            .data(attributes)
+            .enter()
+            .append('option')
+            .text(d => d.displayedText) // text showed in the menu
+            .attr("value", d => d.aid); // corresponding value returned by the button
+      d3.select('#selectButton_xattr').property('value', currentXattrId);
+
+      d3.select("#selectButton_yattr")
+        .on("change", function(d){
+          currentYattrId = this.value;
+          updateDashboard();
+        })
+          .selectAll('myOptions')
+            .data(attributes)
+            .enter()
+            .append('option')
+            .text(d => d.displayedText) // text showed in the menu
+            .attr("value", d => d.aid); // corresponding value returned by the button
+      d3.select('#selectButton_yattr').property('value', currentYattrId);
+    }
+
+    let url = new URL(urlGetData);
+    url.search = new URLSearchParams({"qtype":"init"}).toString();
+    fetch(url,{"credentials": "same-origin"})
+      .then(response => response.json())
+      .then(fetchedData => {
+        countrylist = fetchedData["countrylist"];
+        createSelectButtons(countrylist, attributes);
+        createBinsSlider();
+        updateDashboard();
+      });
+  </script>
+</body>
