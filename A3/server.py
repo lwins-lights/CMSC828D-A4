@@ -244,4 +244,4 @@ def getD3Sliderjs():
 if __name__ == "__main__":
   conn = init(app)
   msg('Initialization done.')
-  app.run(debug=True,port=10007)
+  app.run(debug=True,port=10008)
