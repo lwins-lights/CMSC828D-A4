@@ -403,7 +403,8 @@
           ygHandle.focus.style('display', 'none'); 
           currentYear = 0;
         })
-        .on('mousemove', function(event) { 
+        .on('mousemove', function(event) {
+          let startDate = new Date();
           let mouse = d3.pointer(event);
           mouseData = [xz.invert(mouse[0]), yz.invert(mouse[1])];
           //console.log(mouseData[0].toString() + " " + mouseData[1].toString());
@@ -454,6 +455,7 @@
                   fetchedData.ydata.mn, fetchedData.ydata.mx, 
                   fetchedData.ydata.maxcount, 300, 500, xygraphMargin, 
                   "yhisgraph", currentYattrId);
+                console.log("Delay (Histogram): " + (new Date().getTime() - startDate.getTime()).toString() + "ms")
               });
           }
 
