@@ -6,9 +6,17 @@ except ImportError:
     import json
 from flask import Flask,request,Response,render_template,send_from_directory
 import psycopg2
-import os
+import os, sys
 import colorama
 from colorama import Fore, Style
+
+def genAbsPath(path):
+  if os.path.isabs(path):
+    return path
+  else:
+    #dir_path = os.path.dirname(os.path.realpath(__file__))
+    dir_path = os.getcwd()
+    return os.path.join(dir_path, path)
 
 '''
   errMsg(): Print an error message
@@ -137,10 +145,10 @@ def fetchDataHistogram(conn, attr, year, totalBins):
 '''
   init(): Initialization of the server
 '''
-def init(app):
+def init(app, csvName):
   try:
     config = configparser.ConfigParser()
-    config.read('config.ini')
+    config.read(os.path.join(app.root_path, 'config.ini'))
     conn = psycopg2.connect( \
       database=config['DEFAULT']['database'], \
       user=config['DEFAULT']['user'], \
@@ -169,7 +177,7 @@ def init(app):
     ''')
   fastExe(conn,
     "COPY nations FROM '" +
-    os.path.join(app.root_path, 'data/nations.csv') +
+    genAbsPath(csvName) +
     "' DELIMITER ',' CSV HEADER" 
   )
   return conn
@@ -242,6 +250,7 @@ def getD3Sliderjs():
 '''
 
 if __name__ == "__main__":
-  conn = init(app)
+  csvName = sys.argv[1]
+  conn = init(app, csvName)
   msg('Initialization done.')
   app.run(debug=True,port=10007)
