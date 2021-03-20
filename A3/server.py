@@ -180,6 +180,7 @@ def init(app, csvName):
     genAbsPath(csvName) +
     "' DELIMITER ',' CSV HEADER" 
   )
+  fastExe(conn, "CREATE INDEX ON nations (country);")
   return conn
 
 @app.route('/')

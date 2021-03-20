@@ -1,3 +1,8 @@
+## Create Index
+```
+CREATE INDEX ON nations (country);
+```
+
 ## Create database
 ```
 CREATE DATABASE a2database
