@@ -195,7 +195,7 @@ def init(app, csvName):
 
 varAttr = ['gdp_percap','life_expect', 'population','birth_rate',
   'neonat_mortal_rate']
-treeSize = 2000
+treeSize = 8000
 fenwick = {}
 mnList = {}
 mxList = {}
@@ -247,8 +247,29 @@ def fetchDataHistogramFenwick(conn, attr, year, totalBins):
   mx = float(mxList[year + attr])
   totalBins = int(totalBins)
   step = (mx - mn) / totalBins
+  treeStep = (mx - mn) / treeSize
   table = []
   maxcount = 0
+  command = ''
+  '''
+  for i in range(totalBins):
+    pseudoLB = mn + math.ceil(i * treeSize / totalBins) * treeStep
+    pseudoUB = mn + math.floor((i + 1) * treeSize / totalBins) * treeStep
+    trueLB = mn + i * step;
+    trueUB = mn + (i + 1) * step;
+    command = command + " ".join([
+      "SELECT COUNT(*) FROM nations WHERE",
+      "(year=" + year + ") AND",
+      "((" + attr + ">=" + str(trueLB) + ") AND",
+      "(" + attr + "<" + str(pseudoLB) + ")) OR",
+      "((" + attr + ">=" + str(pseudoUB) + ") AND",
+      "(" + attr + "<" + str(trueUB) + "))"
+    ])
+    if i + 1 < totalBins:
+      command = command + " UNION\n"
+  res = fastExe(conn, command)
+  debugMsg(res)
+  '''
   for i in range(totalBins):
     count = fenwick[year + attr].range_sum(
       int(math.floor(i * treeSize / totalBins)), int(math.ceil((i + 1) * treeSize / totalBins))
