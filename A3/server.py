@@ -9,6 +9,8 @@ import psycopg2
 import os, sys
 import colorama
 from colorama import Fore, Style
+from fenwick import FenwickTree
+import math
 
 def genAbsPath(path):
   if os.path.isabs(path):
@@ -118,8 +120,10 @@ def fetchData(conn, country, xattr, yattr):
 
 def fetchDataHistograms(conn, xattr, yattr, year, bins):
   return {
-    "xdata":fetchDataHistogram(conn, xattr, year, bins),
-    "ydata":fetchDataHistogram(conn, yattr, year, bins)
+    #"xdata":fetchDataHistogram(conn, xattr, year, bins),
+    "xdata":fetchDataHistogramFenwick(conn, xattr, year, bins),
+    #"ydata":fetchDataHistogram(conn, yattr, year, bins)
+    "ydata":fetchDataHistogramFenwick(conn, yattr, year, bins)
   }
 
 def fetchDataHistogram(conn, attr, year, totalBins):
@@ -180,8 +184,78 @@ def init(app, csvName):
     genAbsPath(csvName) +
     "' DELIMITER ',' CSV HEADER" 
   )
-  fastExe(conn, "CREATE INDEX ON nations (country);")
   return conn
+
+###############################################################################
+#   finerInit():
+#   1. create indexes
+#   2. build fenwick tree
+#   >>> FOR THE ALGORITHM, REFER TO THE WRITEUP <<<
+###############################################################################
+
+varAttr = ['gdp_percap','life_expect', 'population','birth_rate',
+  'neonat_mortal_rate']
+treeSize = 2000
+fenwick = {}
+mnList = {}
+mxList = {}
+
+def finerInit(conn):
+
+  # create index
+  fastExe(conn, "CREATE INDEX ON nations (country);")
+  for attr in varAttr:
+    fastExe(conn, "CREATE INDEX ON nations (year," + attr + ");")
+
+  # get statistics
+  temp = fastExe(conn, " ".join([
+    "SELECT DISTINCT year FROM nations ORDER BY year ASC"
+    ]));
+  yearList = []
+  for row in temp:
+    yearList.append(str(int(row[0])))
+  debugMsg(yearList)
+  for year in yearList:
+    for attr in varAttr:
+      mnList[year + attr] = str(fastExe(conn, "SELECT MIN(" + attr + ") FROM nations WHERE year = " + year)[0][0])
+      mxList[year + attr] = str(fastExe(conn, "SELECT MAX(" + attr + ") FROM nations WHERE year = " + year)[0][0])
+
+  # fenwick tree init
+  for year in yearList:
+    for attr in varAttr:
+      mn = mnList[year + attr]
+      mx = mxList[year + attr]
+      step = "((" + mx + "-" + mn + ")/" + str(treeSize) + ")"
+      temp = fastExe(conn, " ".join([
+        "SELECT CASE WHEN",
+        attr + "=" + mx,
+        "THEN", str(treeSize - 1), "ELSE",
+        "FLOOR((" + attr + "-" + mn + ")/" + step + ") END AS seq,",
+        "COUNT(*) FROM nations WHERE year =", year,
+        "GROUP BY seq ORDER BY seq;"
+        ]));
+      vec = [0] * treeSize
+      for row in temp:
+        vec[min(int(row[0]), treeSize - 1)] += row[1]
+      fenwick[year + attr] = FenwickTree(treeSize)
+      fenwick[year + attr].init(vec)
+
+def fetchDataHistogramFenwick(conn, attr, year, totalBins):
+  debugMsg("Fenwick: " + str(attr) + " " + str(year) + " #Bins=" + str(totalBins))
+  year = str(year)
+  mn = float(mnList[year + attr])
+  mx = float(mxList[year + attr])
+  totalBins = int(totalBins)
+  step = (mx - mn) / totalBins
+  table = []
+  maxcount = 0
+  for i in range(totalBins):
+    count = fenwick[year + attr].range_sum(
+      int(math.floor(i * treeSize / totalBins)), int(math.ceil((i + 1) * treeSize / totalBins))
+    )
+    maxcount = max(count, maxcount)
+    table.append([i, count, mn + i * step, mn + (i + 1) * step])
+  return {"data":table, "mn":mn, "mx":mx, "maxcount":maxcount}
 
 @app.route('/')
 def renderPage():
@@ -254,4 +328,6 @@ if __name__ == "__main__":
   csvName = sys.argv[1]
   conn = init(app, csvName)
   msg('Initialization done.')
-  app.run(debug=True,port=10008)
+  finerInit(conn)
+  msg('Optimization initialized.')
+  app.run(debug=True,use_reloader=False,port=10008)
