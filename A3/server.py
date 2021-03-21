@@ -46,7 +46,7 @@ app = Flask(__name__)
   fastExe(): Immediately execute an PostgreSQL query
 '''
 def fastExe(conn, comm):
-  debugMsg(comm)
+  #debugMsg(comm)
   cur = conn.cursor()
   cur.execute(comm)
   try:
@@ -195,34 +195,53 @@ def init(app, csvName):
 
 varAttr = ['gdp_percap','life_expect', 'population','birth_rate',
   'neonat_mortal_rate']
-treeSize = 8000
+treeSize = 5040
 fenwick = {}
 mnList = {}
 mxList = {}
 
 def finerInit(conn):
 
+  msg("Pre-fetching the country list ...")
+  ret = fetchInit(conn)
+
   # create index
+  msg("Creating Indexes ...")
+  size = 6
   fastExe(conn, "CREATE INDEX ON nations (country);")
-  for attr in varAttr:
+  sys.stdout.write('\r')
+  sys.stdout.write("[%-20s] %d%%" % ('='*int((1)*20/size), int((1)*100/size)))
+  sys.stdout.flush()
+  for i, attr in enumerate(varAttr):
     fastExe(conn, "CREATE INDEX ON nations (year," + attr + ");")
+    sys.stdout.write('\r')
+    sys.stdout.write("[%-20s] %d%%" % ('='*int((i+2)*20/size), int((i+2)*100/size)))
+    sys.stdout.flush()
+  sys.stdout.write('\n')
 
   # get statistics
+  msg("Fetching statistics ...")
   temp = fastExe(conn, " ".join([
     "SELECT DISTINCT year FROM nations ORDER BY year ASC"
     ]));
   yearList = []
   for row in temp:
     yearList.append(str(int(row[0])))
-  debugMsg(yearList)
-  for year in yearList:
-    for attr in varAttr:
+  size = 5 * len(yearList)
+  #debugMsg(yearList)
+  for i, year in enumerate(yearList):
+    for j, attr in enumerate(varAttr):
       mnList[year + attr] = str(fastExe(conn, "SELECT MIN(" + attr + ") FROM nations WHERE year = " + year)[0][0])
       mxList[year + attr] = str(fastExe(conn, "SELECT MAX(" + attr + ") FROM nations WHERE year = " + year)[0][0])
+      sys.stdout.write('\r')
+      sys.stdout.write("[%-20s] %d%%" % ('='*int((i*5+j+1)*20/size), int((i*5+j+1)*100/size)))
+      sys.stdout.flush()
+  sys.stdout.write('\n')
 
   # fenwick tree init
-  for year in yearList:
-    for attr in varAttr:
+  msg("Initializing Fenwick trees ...")
+  for i, year in enumerate(yearList):
+    for j, attr in enumerate(varAttr):
       mn = mnList[year + attr]
       mx = mxList[year + attr]
       step = "((" + mx + "-" + mn + ")/" + str(treeSize) + ")"
@@ -239,6 +258,11 @@ def finerInit(conn):
         vec[min(int(row[0]), treeSize - 1)] += row[1]
       fenwick[year + attr] = FenwickTree(treeSize)
       fenwick[year + attr].init(vec)
+      sys.stdout.write('\r')
+      sys.stdout.write("[%-20s] %d%%" % ('='*int((i*5+j+1)*20/size), int((i*5+j+1)*100/size)))
+      sys.stdout.flush()
+  sys.stdout.write('\n')
+  return ret
 
 def fetchDataHistogramFenwick(conn, attr, year, totalBins):
   debugMsg("Fenwick: " + str(attr) + " " + str(year) + " #Bins=" + str(totalBins))
@@ -305,6 +329,9 @@ def renderPage():
     .xdata = data of the histogram
     .ydata 
 '''
+
+initData = {}
+
 @app.route('/get-data')
 def getData():
   qtype = request.args.get('qtype')
@@ -314,7 +341,7 @@ def getData():
     yattr = request.args.get('yattr')
     data = fetchData(conn, country, xattr, yattr)
   if qtype == 'init':
-    data = fetchInit(conn)
+    data = initData
   if qtype == 'data_his':
     xattr = request.args.get('xattr')
     yattr = request.args.get('yattr')
@@ -349,6 +376,6 @@ if __name__ == "__main__":
   csvName = sys.argv[1]
   conn = init(app, csvName)
   msg('Initialization done.')
-  finerInit(conn)
+  initData = finerInit(conn)
   msg('Optimization initialized.')
   app.run(debug=True,use_reloader=False,port=10008)
