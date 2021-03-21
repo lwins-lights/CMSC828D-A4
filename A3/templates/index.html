@@ -70,6 +70,7 @@
     let currentCountryId = 88, currentXattrId = 0, currentYattrId = 3;
     let currentTotalBins = 10;
     let currentYear = 0; // this is for determining if we need to fetch histogram data from the server
+    let memo = {}; // saving histograms data for reuse
 
     function myceil(x) {
       return Math.ceil(x * (1 + epsilon));
@@ -433,30 +434,48 @@
 
           if (currentYear != focusData[2]) {
             currentYear = focusData[2];
-            let url = new URL(urlGetData);
-            url.search = new URLSearchParams({
-              "qtype":"data_his",
-              "bins":currentTotalBins,
-              "xattr":attributes[currentXattrId].colname,
-              "yattr":attributes[currentYattrId].colname,
-              "year":currentYear
-            }).toString();
-            fetch(url,{"credentials": "same-origin"})
-              .then(response => response.json())
-              .then(fetchedData => {
-                //console.dir(fetchedData);
-                renderHistogram(
-                  fetchedData.xdata.data, focusData[0], 
-                  fetchedData.xdata.mn, fetchedData.xdata.mx, 
-                  fetchedData.xdata.maxcount, 300, 500, xygraphMargin, 
-                  "xhisgraph", currentXattrId);
-                renderHistogram(
-                  fetchedData.ydata.data, focusData[1], 
-                  fetchedData.ydata.mn, fetchedData.ydata.mx, 
-                  fetchedData.ydata.maxcount, 300, 500, xygraphMargin, 
-                  "yhisgraph", currentYattrId);
-                console.log("Delay (Histogram): " + (new Date().getTime() - startDate.getTime()).toString() + "ms")
-              });
+            let xHash = currentTotalBins.toString() + ";" + currentXattrId.toString() + ";" + currentYear.toString();
+            let yHash = currentTotalBins.toString() + ";" + currentYattrId.toString() + ";" + currentYear.toString();
+            if ((xHash in memo) && (yHash in memo)) {
+              renderHistogram(
+                memo[xHash].data, focusData[0], 
+                memo[xHash].mn, memo[xHash].mx, 
+                memo[xHash].maxcount, 300, 500, xygraphMargin, 
+                "xhisgraph", currentXattrId);
+              renderHistogram(
+                memo[yHash].data, focusData[1], 
+                memo[yHash].mn, memo[yHash].mx, 
+                memo[yHash].maxcount, 300, 500, xygraphMargin, 
+                "yhisgraph", currentYattrId);
+              console.log("Delay (Histogram): " + (new Date().getTime() - startDate.getTime()).toString() + "ms!")
+            } else {
+              let url = new URL(urlGetData);
+              url.search = new URLSearchParams({
+                "qtype":"data_his",
+                "bins":currentTotalBins,
+                "xattr":attributes[currentXattrId].colname,
+                "yattr":attributes[currentYattrId].colname,
+                "year":currentYear
+              }).toString();
+              fetch(url,{"credentials": "same-origin"})
+                .then(response => response.json())
+                .then(fetchedData => {
+                  //console.dir(fetchedData);
+                  renderHistogram(
+                    fetchedData.xdata.data, focusData[0], 
+                    fetchedData.xdata.mn, fetchedData.xdata.mx, 
+                    fetchedData.xdata.maxcount, 300, 500, xygraphMargin, 
+                    "xhisgraph", currentXattrId);
+                  renderHistogram(
+                    fetchedData.ydata.data, focusData[1], 
+                    fetchedData.ydata.mn, fetchedData.ydata.mx, 
+                    fetchedData.ydata.maxcount, 300, 500, xygraphMargin, 
+                    "yhisgraph", currentYattrId);
+                  console.log("Delay (Histogram): " + (new Date().getTime() - startDate.getTime()).toString() + "ms")
+                  memo[xHash] = fetchedData.xdata;
+                  memo[yHash] = fetchedData.ydata;
+                });
+            }
           }
 
         });
