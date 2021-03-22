@@ -54,7 +54,7 @@ app = Flask(__name__)
 ###############################################################################
 
 def fastExe(conn, comm):
-  debugMsg(comm)
+  #debugMsg(comm)
   cur = conn.cursor()
   cur.execute(comm)
   try:
