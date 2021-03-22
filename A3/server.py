@@ -12,6 +12,10 @@ from colorama import Fore, Style
 from fenwick import FenwickTree
 import math
 
+###############################################################################
+#   absolute/relative path -> absolute path
+###############################################################################
+
 def genAbsPath(path):
   if os.path.isabs(path):
     return path
@@ -20,33 +24,37 @@ def genAbsPath(path):
     dir_path = os.getcwd()
     return os.path.join(dir_path, path)
 
-'''
-  errMsg(): Print an error message
-'''
+###############################################################################
+#   print an error message
+###############################################################################
+
 def errMsg(str):
   print('[ERROR] ' + str)
 
-'''
-  debugMsg(): Print a debug message
-'''
+###############################################################################
+#   print a debug message
+###############################################################################
+
 def debugMsg(str):
   print(Fore.BLUE + "[DEBUG]", end=' ')
   print(str, end = '')
   print(Style.RESET_ALL)
 
-'''
-  msg(): Print a normal message
-'''
+###############################################################################
+#   print a normal message
+###############################################################################
+
 def msg(str):
   print('[MESSAGE] ' + str)
 
 app = Flask(__name__)
 
-'''
-  fastExe(): Immediately execute an PostgreSQL query
-'''
+###############################################################################
+#   immediately execute a postgresql query
+###############################################################################
+
 def fastExe(conn, comm):
-  #debugMsg(comm)
+  debugMsg(comm)
   cur = conn.cursor()
   cur.execute(comm)
   try:
@@ -58,9 +66,10 @@ def fastExe(conn, comm):
   cur.close()
   return data
 
-'''
-  fetchInit(): Fetch initilization data from the PostgreSQL server
-'''
+###############################################################################
+#   fetch initilization data from the PostgreSQL server
+###############################################################################
+
 def fetchInit(conn):
   countrylist = fastExe(conn, " ".join([
     "SELECT DISTINCT country,iso3c,region,income FROM nations ORDER BY country ASC"
@@ -69,9 +78,10 @@ def fetchInit(conn):
     "countrylist":countrylist
     }
 
-'''
-  fetchData(): Fetch data from the PostgreSQL server
-'''
+###############################################################################
+#   fetch data from the PostgreSQL server
+###############################################################################
+
 def fetchData(conn, country, xattr, yattr):
   data = fastExe(conn, " ".join([
     "SELECT", xattr + "," + yattr + ",year",
@@ -118,6 +128,13 @@ def fetchData(conn, country, xattr, yattr):
     "yearmin":yearmin,
     "yearmax":yearmax}
 
+###############################################################################
+#   fetchDataHistograms(): decompose the request to two single fetchings
+#   fetchDataHistogram(): fetch histogram data from the PostgreSQL server
+#   >>> fetchDataHistogram() is desolated!         <<<
+#   >>> we use fetchDataHistogramFenwick() instead <<<
+###############################################################################
+
 def fetchDataHistograms(conn, xattr, yattr, year, bins):
   return {
     #"xdata":fetchDataHistogram(conn, xattr, year, bins),
@@ -125,7 +142,7 @@ def fetchDataHistograms(conn, xattr, yattr, year, bins):
     #"ydata":fetchDataHistogram(conn, yattr, year, bins)
     "ydata":fetchDataHistogramFenwick(conn, yattr, year, bins)
   }
-
+'''
 def fetchDataHistogram(conn, attr, year, totalBins):
   year = str(year)
   mn = fastExe(conn, "SELECT MIN(" + attr + ") FROM nations WHERE year = " + year)[0][0]
@@ -145,10 +162,11 @@ def fetchDataHistogram(conn, attr, year, totalBins):
   return {"data":fastExe(conn, sts), "mn":mn, "mx":mx, "maxcount":fastExe(conn,
     "SELECT MAX(count) FROM (" + sts + ") t2"
   )[0][0]}
+'''
+###############################################################################
+#   server initialization
+###############################################################################
 
-'''
-  init(): Initialization of the server
-'''
 def init(app, csvName):
   try:
     config = configparser.ConfigParser()
@@ -264,11 +282,19 @@ def finerInit(conn):
   sys.stdout.write('\n')
   return ret
 
+###############################################################################
+#   fetch histogram data using fenwick trees
+###############################################################################
+
 def fetchDataHistogramFenwick(conn, attr, year, totalBins):
   debugMsg("Fenwick: " + str(attr) + " " + str(year) + " #Bins=" + str(totalBins))
   year = str(year)
-  mn = float(mnList[year + attr])
-  mx = float(mxList[year + attr])
+  try:
+    mn = float(mnList[year + attr])
+    mx = float(mxList[year + attr])
+  except:
+    return {}
+    pass
   totalBins = int(totalBins)
   step = (mx - mn) / totalBins
   treeStep = (mx - mn) / treeSize
@@ -368,9 +394,9 @@ def getD3Sliderjs():
   return send_from_directory(os.path.join(app.root_path, 'static'),
     'd3-simple-slider.min.js',mimetype='text/javascript')
 
-'''
-  Main part
-'''
+###############################################################################
+#   main
+###############################################################################
 
 if __name__ == "__main__":
   csvName = sys.argv[1]
