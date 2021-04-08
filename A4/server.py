@@ -273,7 +273,8 @@ def finerInit(conn):
         ]));
       vec = [0] * treeSize
       for row in temp:
-        vec[min(int(row[0]), treeSize - 1)] += row[1]
+        if not (row[0] is None) and not (row[1] is None):
+          vec[min(int(row[0]), treeSize - 1)] += row[1]
       fenwick[year + attr] = FenwickTree(treeSize)
       fenwick[year + attr].init(vec)
       sys.stdout.write('\r')
@@ -404,4 +405,4 @@ if __name__ == "__main__":
   msg('Initialization done.')
   initData = finerInit(conn)
   msg('Optimization initialized.')
-  app.run(debug=True,use_reloader=False,port=10008)
+  app.run(debug=True,use_reloader=False,port=10009)
