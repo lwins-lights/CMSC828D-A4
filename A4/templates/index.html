@@ -813,9 +813,33 @@
       }
     }
 
+    function ts(x, y) {
+      let xDelay = taskData[x].hisDelay;
+      let xBlock = taskData[x].blockXy;
+      let yDelay = taskData[y].hisDelay;
+      let yBlock = taskData[y].blockXy;
+      let z = taskData[x];
+      taskData[x] = taskData[y];
+      taskData[y] = z;
+      taskData[x].hisDelay = xDelay;
+      taskData[x].bloxkXy = xBlock;
+      taskData[y].hisDelay = yDelay;
+      taskData[y].bloxkXy = yBlock;
+    }
+
     /* Main */
 
     timeStamp = new Date();
+
+    /* Task shuffle */
+
+    if (Math.random() > 0.375) {
+      ts(1, 2); ts(2, 3); ts(3, 4); ts(4, 5); ts(5, 6); ts(6, 7); ts(7, 8);
+    }
+    for (let i = 0; i < 100; i++) {
+      ts(10 + Math.floor(Math.random() * 6), 10 + Math.floor(Math.random() * 6));
+    }
+
 
     document.getElementById("btn-next").addEventListener("click", function(){
       // Generate download of hello.txt file with some content
