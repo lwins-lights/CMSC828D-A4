@@ -46,3 +46,6 @@ Please wait until it is outputted that
 
 Now, open the web page [http://127.0.0.1:10009/](http://127.0.0.1:10009/) with any browser to enjoy! You may need to use `ctrl`+`-` to zoom out the dashboard if your screen is not large enough.
 
+### Return the result
+Your browser should automatically download a `log.txt` file when you finish. Please send it to `yfzheng@umd.edu`.
+
