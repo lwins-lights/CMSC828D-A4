@@ -26,18 +26,23 @@
         <select id="selectButton_xattr"></select><br>
         <select id="selectButton_yattr"></select>
       </div>
-      <div style="float: left;">
+      <div style="float: left; margin-left: -30px">
         <p>Total Bins:</p>
         <div class="col-sm"><div id="bin-slider"></div></div>
       </div>
-      <div style="float: left; margin-right: 50px">
+      <div style="float: left; margin-left: -50px; margin-right: 10px">
         <p id="yearDisplay"></p>
         <p id="xattrDisplay"></p>
         <p id="yattrDisplay"></p>
       </div>
-      <div style="float: left;">
+      <div style="float: left; margin-right: 20px">
         <p id="regionDisplay"></p>
         <p id="incomeDisplay"></p>
+      </div>
+      <div style="float: left; width: 550px">
+        <p id="textDisplay", style="font-weight: bold">Loading ...</p><br/>
+        <textarea id="text-val" rows="1"></textarea>
+        <input type="button" id="btn-next" value="Next"/>
       </div>
     </div>
     <br style="clear:both" />
@@ -55,6 +60,145 @@
   </div>
 
   <script>
+    let taskData = [
+      {
+        "text": "Thank you for volunteering! Please read this message and do not play with the dashboard for now because we want to know users' learning curves. Your data collected during this experiment will be completely anonymized. Task description will always presented here. The estimated completion time is about 15-25 minutes. Note that you may zoom the entire dashboard by Ctrl + mouse wheel. Sometimes some graph will be missing, which is not a bug. Type an alias you like (which may be used in our final report) and click \"Next\" to start the test.", 
+        "load": false
+      },
+      { 
+        "text": 'Please report the (GDP per Capita, Birth Rate) trend for Iraq in 2000-2001, 2001-2002, ..., 2009-2010 in order. If both are increasing type "+"; If both decreasing, "-"; If GDP per Capita is solely increasing, "1"; If Birth Rate, "2". You should enter something like "+-+-1221+2".', 
+        "load": true,
+        "blockXy": false,
+        "hisDelay": 0,
+        "countryId": 88, // Iraq
+        "xattrId": 0,
+        "yattrId": 3
+      },
+      {
+        "text": 'Please report the (GDP per Capita, Birth Rate) trend for Ireland in 2000-2001, 2001-2002, ..., 2009-2010 in order. If both are increasing type "+"; If both decreasing, "-"; If GDP per Capita is solely increasing, "1"; If Birth Rate, "2". You should enter something like "+-+-1221+2".', 
+        "load": true,
+        "blockXy": false,
+        "hisDelay": 0,
+        "countryId": 89, // Ireland
+        "xattrId": 0,
+        "yattrId": 3
+      },
+      {
+        "text": 'Please report the (GDP per Capita, Life Expectancy) trend for Isarel in 2000-2001, 2001-2002, ..., 2009-2010 in order. If both are increasing type "+"; If both decreasing, "-"; If GDP per Capita is solely increasing, "1"; If Birth Rate, "2". You should enter something like "+-+-1221+2".', 
+        "load": true,
+        "blockXy": false,
+        "hisDelay": 0,
+        "countryId": 91, // Isarel
+        "xattrId": 0,
+        "yattrId": 1
+      },
+      { 
+        "text": 'Please report the (GDP per Capita, Birth Rate) trend for Iraq in 1990-1991, 1991-1992, ..., 1999-2000 in order. If both are increasing type "+"; If both decreasing, "-"; If GDP per Capita is solely increasing, "1"; If Birth Rate, "2". You should enter something like "+-+-1221+2".', 
+        "load": true,
+        "blockXy": true,
+        "hisDelay": 0,
+        "countryId": 88, // Iraq
+        "xattrId": 0,
+        "yattrId": 3
+      },
+      {
+        "text": 'Please report the (GDP per Capita, Birth Rate) trend for Ireland in 1990-1991, 1991-1992, ..., 1999-2000 in order. If both are increasing type "+"; If both decreasing, "-"; If GDP per Capita is solely increasing, "1"; If Birth Rate, "2". You should enter something like "+-+-1221+2".', 
+        "load": true,
+        "blockXy": false,
+        "hisDelay": 0,
+        "countryId": 89, // Ireland
+        "xattrId": 0,
+        "yattrId": 3
+      },
+      {
+        "text": 'Please report the (GDP per Capita, Life Expectancy) trend for Isarel in 1990-1991, 1991-1992, ..., 1999-2000 in order. If both are increasing type "+"; If both decreasing, "-"; If GDP per Capita is solely increasing, "1"; If Birth Rate, "2". You should enter something like "+-+-1221+2".', 
+        "load": true,
+        "blockXy": true,
+        "hisDelay": 0,
+        "countryId": 91, // Isarel
+        "xattrId": 0,
+        "yattrId": 1
+      },
+      {
+        "text": 'Please report the (GDP per Capita, Birth Rate) trend for Kazakhstan in 1990-1991, 1991-1992, ..., 1999-2000 in order. If both are increasing type "+"; If both decreasing, "-"; If GDP per Capita is solely increasing, "1"; If Birth Rate, "2". You should enter something like "+-+-1221+2".', 
+        "load": true,
+        "blockXy": false,
+        "hisDelay": 0,
+        "countryId": 96, // Kazakhstan
+        "xattrId": 0,
+        "yattrId": 3
+      },
+      {
+        "text": 'Please report the (GDP per Capita, Birth Rate) trend for Kazakhstan in 2000-2001, 2001-2002, ..., 2009-2010 in order. If both are increasing type "+"; If both decreasing, "-"; If GDP per Capita is solely increasing, "1"; If Birth Rate, "2". You should enter something like "+-+-1221+2".', 
+        "load": true,
+        "blockXy": true,
+        "hisDelay": 0,
+        "countryId": 96, // Kazakhstan
+        "xattrId": 0,
+        "yattrId": 3
+      },
+      {
+        "text": 'What is your opinion about the 2D progression graph when performing tasks? Please type a number between 0 and 5: "0" means "not helpful at all" and "5" means "very helpful".',
+        "load": false
+      },
+      {
+        "text": 'Please report Guyana\'s birth rate RELATIVE TO all countires in 2000, 2001, ..., 2009 in order. If the birth rate lies in the 1st (resp., 2nd, ..., 10th) bar, type "0" (resp., "1", ..., "9"). You should enter something like "0352456798".', 
+        "load": true,
+        "blockXy": false,
+        "hisDelay": 0,
+        "countryId": 79, // Guyana
+        "xattrId": 3,
+        "yattrId": 3
+      },
+      {
+        "text": 'Please report Guyana\'s birth rate RELATIVE TO all countires in 1990, 1991, ..., 1999 in order. If the birth rate lies in the 1st (resp., 2nd, ..., 10th) bar, type "0" (resp., "1", ..., "9"). You should enter something like "0352456798".', 
+        "load": true,
+        "blockXy": false,
+        "hisDelay": 0,
+        "countryId": 79, // Guyana
+        "xattrId": 3,
+        "yattrId": 3
+      },
+      {
+        "text": 'Please report China\'s neonatal mortality rate RELATIVE TO all countires in 1990, 1991, ..., 1999 in order. If the neonatal mortality rate in the 1st (resp., 2nd, ..., 10th) bar, type "0" (resp., "1", ..., "9"). You should enter something like "0352456798".', 
+        "load": true,
+        "blockXy": false,
+        "hisDelay": 150,
+        "countryId": 39, // China
+        "xattrId": 4,
+        "yattrId": 4
+      },
+      {
+        "text": 'Please report Egypt\'s neonatal mortality rate RELATIVE TO all countires in 1990, 1991, ..., 1999 in order. If the neonatal mortality rate in the 1st (resp., 2nd, ..., 10th) bar, type "0" (resp., "1", ..., "9"). You should enter something like "0352456798".', 
+        "load": true,
+        "blockXy": false,
+        "hisDelay": 300,
+        "countryId": 56, // Egypt
+        "xattrId": 4,
+        "yattrId": 4
+      },
+      {
+        "text": 'Please report China\'s neonatal mortality rate RELATIVE TO all countires in 2000, 2001, ..., 2009 in order. If the neonatal mortality rate in the 1st (resp., 2nd, ..., 10th) bar, type "0" (resp., "1", ..., "9"). You should enter something like "0352456798".', 
+        "load": true,
+        "blockXy": false,
+        "hisDelay": 550,
+        "countryId": 39, // China
+        "xattrId": 4,
+        "yattrId": 4
+      },
+      {
+        "text": 'Please report Egypt\'s neonatal mortality rate RELATIVE TO all countires in 2000, 2001, ..., 2009 in order. If the neonatal mortality rate in the 1st (resp., 2nd, ..., 10th) bar, type "0" (resp., "1", ..., "9"). You should enter something like "0352456798".', 
+        "load": true,
+        "blockXy": false,
+        "hisDelay": 1000,
+        "countryId": 56, // Egypt
+        "xattrId": 4,
+        "yattrId": 4
+      },
+    ]
+    const nTask = taskData.length;
+    let a4log = [];
+
     const epsilon = 1e-8;
     const xygraphMargin = ({top: 20, right: 30, bottom: 40, left: 50});
     const formatValuePrecision = 3;
@@ -72,6 +216,10 @@
     let currentTotalBins = 10;
     let currentYear = 0; // this is for determining if we need to fetch histogram data from the server
     let memo = {}; // saving histograms data for reuse
+    let currentTaskId = 0; // A4 task ID 
+    let currentHisDelay = 0; // A4 histogram delay (ms)
+    let cuurentBlockXy = false; // A4 block xy
+    let timeStamp = null;
 
     function myceil(x) {
       return Math.ceil(x * (1 + epsilon));
@@ -109,7 +257,15 @@
       }
       return data[runningArg];
     }
+
     function renderHistogram(data, focusData, mn, mx, maxcount, height, width, margin, nodeName, attrId) {
+      setTimeout(function() {
+        renderHistogramNow(data, focusData, mn, mx, maxcount, height, width, margin, nodeName, attrId);
+      }, currentHisDelay);
+    }
+
+
+    function renderHistogramNow(data, focusData, mn, mx, maxcount, height, width, margin, nodeName, attrId) {
       clearNode(nodeName);
       const svg = d3.select("#" + nodeName).append("svg")
         .attr("width",width)
@@ -267,19 +423,6 @@
       let xHash = currentTotalBins.toString() + ";" + currentXattrId.toString() + ";" + currentYear.toString();
       let yHash = currentTotalBins.toString() + ";" + currentYattrId.toString() + ";" + currentYear.toString();
       if ((xHash in memo) && (yHash in memo)) {
-        /*
-        renderHistogram(
-          memo[xHash].data, focusData[0], 
-          memo[xHash].mn, memo[xHash].mx, 
-          memo[xHash].maxcount, 300, 500, xygraphMargin, 
-          "xhisgraph", currentXattrId);
-        renderHistogram(
-          memo[yHash].data, focusData[1], 
-          memo[yHash].mn, memo[yHash].mx, 
-          memo[yHash].maxcount, 300, 500, xygraphMargin, 
-          "yhisgraph", currentYattrId);
-        console.log("Delay (Histogram): " + (new Date().getTime() - startDate.getTime()).toString() + "ms!")
-        */
       } else {
         let url = new URL(urlGetData);
         url.search = new URLSearchParams({
@@ -292,24 +435,6 @@
         fetch(url,{"credentials": "same-origin"})
           .then(response => response.json())
           .then(fetchedData => {
-            //console.dir(fetchedData);
-            /*
-            for (int i = -prefetchYearRange; i <= prefetchYearRange; i++) {
-              let tempYear = currentYear + i;
-              prefetchIfNotMemorized(tempYear);
-            }
-            renderHistogram(
-              fetchedData.xdata.data, focusData[0], 
-              fetchedData.xdata.mn, fetchedData.xdata.mx, 
-              fetchedData.xdata.maxcount, 300, 500, xygraphMargin, 
-              "xhisgraph", currentXattrId);
-            renderHistogram(
-              fetchedData.ydata.data, focusData[1], 
-              fetchedData.ydata.mn, fetchedData.ydata.mx, 
-              fetchedData.ydata.maxcount, 300, 500, xygraphMargin, 
-              "yhisgraph", currentYattrId);
-            console.log("Delay (Histogram): " + (new Date().getTime() - startDate.getTime()).toString() + "ms")
-            */
             memo[xHash] = fetchedData.xdata;
             memo[yHash] = fetchedData.ydata;
           });
@@ -318,6 +443,7 @@
 
     function renderXygraph(data, xmin, xmax, ymin, ymax, height, width, margin, xgHandle, ygHandle) {
       clearNode("xygraph");
+      if (currentBlockXy) return; // A4 blockXY
       const svg = d3.select("#xygraph").append("svg")
         .attr("width",width)
         .attr("height",height);
@@ -548,7 +674,10 @@
     }
 
     function updateDashboard() {
-      //console.log([currentCountryId, currentXattrId, currentYattrId]);
+      console.log([currentCountryId, currentXattrId, currentYattrId, document.getElementById("selectButton_country").selectedIndex, d3.select("#selectButton_country").value]);
+      document.getElementById("selectButton_country").selectedIndex = currentCountryId;
+      document.getElementById("selectButton_xattr").selectedIndex = currentXattrId;
+      document.getElementById("selectButton_yattr").selectedIndex = currentYattrId;
       d3.select('#regionDisplay')
         .text("Region: " + countrylist[currentCountryId][2]);
       d3.select('#incomeDisplay')
@@ -653,6 +782,61 @@
       d3.select('#selectButton_yattr').property('value', currentYattrId);
     }
 
+    function download(filename, text) {
+      var element = document.createElement('a');
+      element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+      element.setAttribute('download', filename);    
+      element.style.display = 'none';
+      document.body.appendChild(element);    
+      element.click();    
+      document.body.removeChild(element);
+    }
+
+    function loadTask(taskId) {
+      document.getElementById("text-val").value = "";
+      if (taskId == nTask) {
+        document.getElementById("textDisplay").textContent = "Thank you! Now your broswer should start saving the experiment result. Please send it to yfzheng@umd.edu. :)";
+        download("log.txt", JSON.stringify(a4log));
+        return;
+      }
+      document.getElementById("textDisplay").textContent = "(Task " + (taskId+1).toString() + "/" + nTask.toString() + ")  " + taskData[taskId].text;
+      clearNode("xgraph");
+      clearNode("ygraph");
+      clearNode("xygraph");
+      clearNode("xhisgraph");
+      clearNode("yhisgraph");
+      if (taskData[taskId].load) {
+        currentCountryId = taskData[taskId].countryId;
+        currentXattrId = taskData[taskId].xattrId;
+        currentYattrId = taskData[taskId].yattrId;
+        updateDashboard();
+      }
+    }
+
+    /* Main */
+
+    timeStamp = new Date();
+
+    document.getElementById("btn-next").addEventListener("click", function(){
+      // Generate download of hello.txt file with some content
+      let timeNow = new Date();
+      let userInput = document.getElementById("text-val").value;
+      let a = {
+        "date": timeNow.toString(),
+        "time_elapsed_ms": timeNow.getTime() - timeStamp.getTime(),
+        "user_input": userInput
+      };
+      a4log.push(Object.assign({}, a, taskData[currentTaskId]));
+
+      timeStamp = timeNow;
+      if (currentTaskId < nTask) currentTaskId++;
+      if (currentTaskId < nTask) {
+        currentHisDelay = taskData[currentTaskId].hisDelay;
+        currentBlockXy = taskData[currentTaskId].blockXy;
+      }
+      loadTask(currentTaskId);
+    }, false);
+    
     let url = new URL(urlGetData);
     url.search = new URLSearchParams({"qtype":"init"}).toString();
     fetch(url,{"credentials": "same-origin"})
@@ -661,7 +845,10 @@
         countrylist = fetchedData["countrylist"];
         createSelectButtons(countrylist, attributes);
         createBinsSlider();
-        updateDashboard();
+        //updateDashboard();
       });
+
+    loadTask(currentTaskId);
+    
   </script>
 </body>
