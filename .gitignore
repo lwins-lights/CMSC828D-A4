@@ -1,3 +1,6 @@
 *.csv
 .~*
 !data/nations.csv
+*.txt
+*.json
+A4/templates/test_download.html
