@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<!-- saved from url=(0070)https://courses.cs.washington.edu/courses/cse512/18sp/a2-template.html -->
+<html xml:lang="en" lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>CMSC828D -- Assignment 4</title>
+  <style>
+* { padding: 0; margin: 0; }
+
+body {
+  margin: 0 auto 0 auto;
+  padding: 0;
+  background-color: #800000;
+  width: 840px;
+  font-family: "Avenir", "Avenir Next", Helvetica Neue, Arial;
+  font-size: 0.95em;
+}
+
+a, a:visited { text-decoration: none; color: #ff0000; }
+a:hover { text-decoration: underline; color: #f4b014; }
+img, a.img, a:hover.img { border: none; }
+
+img {
+  max-width: 800px;
+}
+
+h1, h2, h3, h4, h5 {
+  color: #990000;
+  background-color: inherit;
+  font-weight: normal;
+  padding: 0 0 5px 0;
+  margin: 15px 0 0 0;
+  border: none;
+  clear: right;
+}
+h1 { font-size: 18pt; margin:  5px 0 10px 0; line-height: 28px; }
+h2 { font-size: 14pt; margin: 30px 0 15px 0; letter-spacing: 0.01em; border-bottom: 1px solid #ccc;  line-height: 20px;}
+h3 { font-size: 13pt; }
+h4 { font-size: 12pt; }
+h5 { font-size: 11pt; }
+p { margin: 0 0 10px 0; }
+hr { border: 0px; border-top: 1px solid #ccc; height: 0px; }
+ol { margin: 1em; }
+ul { margin: 1em; }
+
+.content {
+  margin: 0;
+  padding: 15px 20px;
+  background-color: #ffffff;
+}
+
+.article {
+  line-height: 1.5em;
+}
+
+.entry  {
+  border-top: 1px solid #ddd;
+  padding-top: 2px;
+  margin-top: 3em;
+}
+  </style>
+</head>
+
+<body>
+<div class="content">
+
+<section>
+  <h1>Assignment 4: Evaluating Visualizations</h1>
+
+  <p>
+    <strong>Yufan Zheng</strong> —
+    <em>yfzheng@umd.edu</em>
+  </p>
+  <!--
+  <p>
+    <strong>Name</strong> —
+    <em>UMD Email Address</em>
+  </p>
+  -->
+
+</section>
+
+<section>
+  <h2>Resources</h2>
+  <p>
+    <strong>log/log_data.json</strong>: The collected data file <br/>
+    <strong>A2_writeup.md</strong>: The original A2 writeup <br/>
+    <strong>A3_writeup.md</strong>: The original A3 writeup <br/>
+    <strong>README.md</strong>: The A4 README file written for volunteers <br/>
+    <strong>A2/</strong>: A2 code <br/>
+    <strong>A3/</strong>: A3 code <br/>
+    <strong>A4/</strong>: all A4 code <br/>
+  </p>
+</section>
+
+<section>
+  <h2>Description of A3</h2>
+  <img src="./A4_report/A2_snapshot.png">
+  <img src="./A4_report/A4_snapshot.png">
+  <p>
+    <!-- Write one paragrah here about how your A3 submission: the goal in creating the visualization, and how the visualization works. -->
+    Our A2 and A3 share the same user interface. 
+    Our A4 only added a small interaction interface for collecting users' responses for the study.
+  </p>
+  <p>
+    The data (<strong>data/nations.csv</strong>) consists of important statistics of countries all over the world such as GDP per capita and birth rate for each year. Clearly, it is not helpful to directly show these raw data to users. My rule of thumb is to <em>put a row of the raw data into a <strong>context</strong></em>.
+  </p>
+  <p>
+    Here lists our visualization elements:
+    <ul>
+      <li><em>Select Buttons</em> for the Country and two Attributes, which are in the top-left corner of the dashboard.</li>
+      <li><em>Bin Slider</em>, lying to the right of Select Buttons, is for controlling the number of bins shown in two histograms.</li>
+      <li><em>Data Focused</em>, lying to the right of Bin Slider, will show the data point near the cursor.</li>
+      <li><em>2D Progression Graph</em> at the left side of the dashboard shows the progression of attribute pairs over time.</li>
+      <li>The meanings of <em>Line graphs</em> and <em>Histograms</em> are self-evident. </li>
+    </ul>
+  </p>
+</section>
+
+<section>
+  <h2>Research Questions</h2>
+  <ol>
+    <li>Is our interface design intuitive and/or helpful for users to explore the dataset and perform certain tasks?</li>
+    <li>What is the effect of interface lag to users when they perform related tasks?</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Data Collection</h2>
+
+  <p>
+    <!--
+    ENTER A DESCRIPTION OF YOUR COLLECTED DATA SET HERE.<br>
+    What data did you collect to answer your research questions? What was your process for collecting the data? Why did you make these choices? What data did you collect to answer these questions? Why did you decide to collect data in this way?
+    -->
+    <strong>Experiment design.</strong>
+    We collected data via client log (users' explicit inputs included). We mainly focused on the time used by users to perform certain tasks. All tasks of the same type are randomly shuffled, and independent to technical parameters such as histogram delay (see below), before the experiment.
+    <ul>
+      <li><strong>Type 1 task.</strong> Volunteers are first required to perform three tasks of the same type <em>without any explanation of the interface</em>: using the 2D progression graph to analyze and report the (X, Y) trend for countires, where X and Y are certain quantitative indexes of countries, such as GDP per capita or birth rate. This is for studying their <em>learning curves</em>. </li>
+      <li><strong>Type 1' task.</strong> Volunteers are then given six tasks of the same type. However, with 50% probability the 2D progression graph will be disabled. Therefore, they have to rely on line graphs to analyze and report the (X, Y) trend. This is for studying the effectiveness of our 2D progression graph.</li>
+      <li>Volunteers are then asked how useful they think of the 2D progression graph based on previous experience. The possible answer ranges from 0 to 5, where 0 means "not useful at all" and 5 mean "very useful".
+      <li><strong>Type 2 task.</strong> Finally, they are required to perform six tasks of the same type: using histograms to analyze and report where countries' certain quantitative indexes X are positioned relative to countries all over the world. Random delay for histograms is introduced in these tasks. The is for studying the effect of interface lag.</li>
+    </ul>
+    Some similar tasks will be added before certain types of tasks for users to get familiar with those types. Data of these tasks will <em> not </em> be analyzed except for studying users' learning curves.
+  </p>
+  <p>
+    <strong>Justification.</strong>
+    We collected data <em>only</em> by client log (answers to subjective questions included) because this way the process is cleaner to both volunteers and us; and there is no downside given the data we want to collect.
+    We biased towards collecting quantitative data because we thought it will be more objective: when talking about "how easy" to perform tasks, an objective timing analysis is more persuasive.
+    Still, we collected minimal amount of subjective data for comparison.
+    The advantage of adding similar tasks before certain types of tasks is obvious: it reduces the undesired effect of "volunteers' familiarity to tasks" to our timing analysis.
+    Last, we have collected other data such as answers to our tasks. 
+    However our preliminary exploration showed that the correct rates for all volunteers are above 90%.
+    And we could not think of an interesting analysis involving that.
+  </p>
+</section>
+
+
+<section>
+  <h2>Discoveries &amp; Insights</h2>
+
+  <div class="entry">
+    <img src="./A4_report/lc.png">
+    <p class="caption">
+    In response to <strong>Question 1</strong>, this graph shows the learning curve of users. The x axis measures how many times a volunteer has been performing the <strong>Type 1</strong> task (the current one included). The y axis represents the average completion time of <strong>Type 1</strong> tasks among all volunteers.
+    We see that the interface is not trivially intuitive: volunteers were still getting more proficient when performing the same type of tasks in the third time. However, we admit that the data is also influenced by the <em> familiarity to the task itself</em>, and we have failed to come up with an idea to negate its effect.
+    </p>
+  </div>
+
+  <div class="entry">
+    <img src="./A4_report/average_advantage.png">
+    <p class="caption">
+      In response to <strong>Question 1</strong>, this graph shows the average completion time of a single <strong>Type 1'</strong> task among all volunteers, computed separately for whether the 2D progression graph is "blocked" (disabled). We conclude that the 2D progression graph is advantageous (compared to line graphs) for performing <strong>Type 1'</strong> tasks. However, the effect is not as great as one would have expected.
+    </p>
+  </div>
+
+  <div class="entry">
+    <img src="./A4_report/ss.png">
+    <p class="caption">
+    In response to <strong>Question 1</strong>, this graph shows the usefulness score volunteers given to the 2D progression graph based on their pevious experience in doing <strong>Type 1'</strong> tasks. Also, it gives the personal average advantage, defined as "how much faster when one did <strong>Type 1'</strong> tasks with the 2D progression graph <em> enabled</em>, compared to when <em> disabled</em>".
+    Suprisingly, two volunteers giving "5" actually did better (in terms of completion time) when the graph was disabled!
+    This might be a hint that users' subjective experience and their objective performance sometimes do not match.
+    </p>
+  </div>
+
+  <div class="entry">
+    <img src="./A4_report/de.png">
+    <p class="caption">
+    In response to <strong>Question 2</strong>, this graph shows the effect of histogram delay to volunteers' average completion time of <strong>Type 2</strong> tasks. The result is suprising: we cannot see an expected curve that the completion time grows as the delay grows. The reason may be (i) statistical error and/or (ii) users have some internal mechanism to be "less patient" when delay occurs. (Note that we did <em>not</em> require volunteers to perform tasks as fast as possible!) 
+    </p>
+  </div>
+
+</section>
+<section>
+  <h2>Reflection</h2>
+  <p>
+    Note that we already have some detailed discussion above. Please refer to the previous corresponding parts when you feel that our explanation is not fully detailed.
+  </p>
+  <div class="entry">
+    <h3>Three Concrete Takeaways</h3>
+    <p>
+      TAKEAWAY 1: <em>User manual or tutorial is necessary and we should have incorporated a tutorial explicitly into the A3 interface.</em> This is based on the learning curve graph we have discussed: without any explanation of the interface, volunteers were still getting (far) more proficient when performing the same type of tasks even in the third time. </li>
+    </p>
+    <p>
+      TAKEAWAY 2: <em>It is important to consider simplicity of the visualization and we should have let users choose one from the  2D progression graph and line graphs, but not shown them both at once in A3.</em> This is supported by the fact that, giving more information to users sometimes hinders their progress: our third analysis shows that two volunteers did better (in terms of completion time) when some graph was disabled (and no new information added).</li>
+    </p>
+    <p>
+      TAKEAWAY 3: <em>Delay does not mean everything and we should not have optimized delay at cost of other performance indexes in A3.</em> This takeway is supported by our fourth analysis, where it is shown that delay did not influence users' performance as much as we thought before. </li>
+    </p>
+    <p>
+      TAKEAWAY 3': However, TAKEAWAY 3 may not be correct (refer to our fourth analysis). In case it is not, we have <em>"always run statistical check to your data to see e.g. what the p value is"</em>. Certainly, any statsitcal test for this experiment is likely to fail because we have only 4 participants.</li>
+    </p>
+  </div>
+  <div class="entry">
+    <h3>Final Takeaway</h3>
+    <p>
+    <em>Users' objective performance and their subjective experience may sometimes mismatch, which tells us "always do quantitative experiments to help design better visualization when possible".</em> This is supported by our third analysis: two volunteers giving highest usefulness scores to the 2D progression graph actually did better (in terms of completion time) when the graph was disabled!
+    </p>
+  </div>
+</section>
+
+</div>
+
+
+</body></html>
